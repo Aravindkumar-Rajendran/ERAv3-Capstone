@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import HomePage from './pages';
-import ComponentName from './components';
+import { ComponentName } from './components';
 import './styles/index.css';
 
 const App: React.FC = () => {

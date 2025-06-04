@@ -8,3 +8,10 @@ export const ComponentName: React.FC = () => {
         </div>
     );
 };
+
+// Quiz Components
+export { QuizComponent } from './QuizComponent';
+export { MCQQuiz } from './quiz/MCQQuiz';
+export { TrueFalseQuiz } from './quiz/TrueFalseQuiz';
+export { FillBlanksQuiz } from './quiz/FillBlanksQuiz';
+export { MatchFollowingQuiz } from './quiz/MatchFollowingQuiz';

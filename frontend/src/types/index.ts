@@ -12,3 +12,6 @@ export interface User {
 }
 
 export type Status = 'active' | 'inactive' | 'pending';
+
+// Export all quiz types
+export * from './quiz';

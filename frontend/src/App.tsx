@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { WizardPage } from './pages/WizardPage';
+import { WhizardPage } from './pages/WhizardPage';
 import { InteractivePage } from './pages/InteractivePage';
 import './styles/index.css';
 
@@ -9,7 +9,7 @@ const App = () => {
     <Router>
       <div>
         <Routes>
-          <Route path="/" element={<WizardPage />} />
+          <Route path="/" element={<WhizardPage />} />
           <Route path="/old-demo" element={<InteractivePage />} />
           {/* Add more routes here as needed */}
         </Routes>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { QuizComponent } from '../components/QuizComponent';
 import { QuizData, QuizSubtype } from '../types/quiz';
 
-export const WizardPage = () => {
+export const WhizardPage = () => {
   const [userContent, setUserContent] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showOptions, setShowOptions] = useState(false);
@@ -287,7 +287,7 @@ export const WizardPage = () => {
           WebkitTextFillColor: 'transparent',
           textShadow: '0 0 20px rgba(33, 150, 243, 0.3)'
         }}>
-          🧙‍♂️ WizardLM
+          🧙‍♂️ WhizardLM
         </h1>
         <p style={{
           textAlign: 'center',

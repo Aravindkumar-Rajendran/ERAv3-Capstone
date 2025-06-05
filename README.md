@@ -1,4 +1,4 @@
-# WizardLM Interactive Learning Platform
+# WhizardLM Interactive Learning Platform
 
 An interactive educational platform that transforms user content into engaging learning experiences through multiple interactive formats including quizzes, timelines, mind maps, and flashcards.
 
@@ -23,7 +23,7 @@ ERAv3-Capstone/
 │   ├── src/
 │   │   ├── components/      # Reusable React components
 │   │   ├── pages/           # Page components
-│   │   │   ├── WizardPage.tsx
+│   │   │   ├── WhizardPage.tsx
 │   │   │   └── InteractivePage.tsx
 │   │   ├── styles/          # CSS stylesheets
 │   │   │   └── index.css

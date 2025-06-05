@@ -1,4 +1,4 @@
-# WizardLM Quiz Generator Backend
+# WhizardLM Quiz Generator Backend
 
 FastAPI backend service that generates interactive quizzes using Gemini 2.0 Flash AI.
 

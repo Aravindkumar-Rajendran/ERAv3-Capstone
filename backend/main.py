@@ -9,15 +9,15 @@ from pydantic import BaseModel
 import uvicorn
 from dotenv import load_dotenv
 
-from gemini_client import GeminiClient
+from coding_agent.gemini_client import GeminiClient
+from coding_agent.quiz_prompts import COMPREHENSIVE_QUIZ_PROMPT
 from pdf_extractor import extract_text_from_pdf
-from quiz_prompts import COMPREHENSIVE_QUIZ_PROMPT
 from config import Config
 
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(title="WizardLM Quiz Generator", version="1.0.0")
+app = FastAPI(title="WhizardLM Quiz Generator", version="1.0.0")
 
 # CORS middleware for frontend communication
 app.add_middleware(
@@ -42,7 +42,7 @@ class QuizResponse(BaseModel):
 
 @app.get("/")
 async def root():
-    return {"message": "WizardLM Quiz Generator API", "status": "running"}
+    return {"message": "WhizardLM Quiz Generator API", "status": "running"}
 
 @app.post("/generate-quiz", response_model=QuizResponse)
 async def generate_quiz(

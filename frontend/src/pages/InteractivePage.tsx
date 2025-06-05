@@ -7,36 +7,182 @@ export const InteractivePage: React.FC = () => {
   const [isQuizOpen, setIsQuizOpen] = useState(false);
 
   // Dummy quiz data for testing
+  // const mcqQuizData: QuizData = {
+  //   subtype: 'MCQ',
+  //   title: 'Nature Quiz - Multiple Choice',
+  //   description: 'Test your knowledge about nature and wildlife',
+  //   theme: {
+  //     primaryColor: '#4CAF50',
+  //     secondaryColor: '#81C784',
+  //     backgroundColor: '#E8F5E8',
+  //     textColor: '#2E7D32',
+  //     fontFamily: 'Georgia, serif',
+  //     animation: 'nature',
+  //     iconSet: 'leaf'
+  //   },
+  //   questions: [
+  //     {
+  //       id: 1,
+  //       question: 'Which is the largest mammal in the world?',
+  //       options: ['Elephant', 'Blue Whale', 'Giraffe', 'Hippopotamus'],
+  //       correctAnswer: 1,
+  //       explanation: 'The Blue Whale is the largest mammal and largest animal that has ever lived on Earth.'
+  //     },
+  //     {
+  //       id: 2,
+  //       question: 'What process do plants use to make their own food?',
+  //       options: ['Respiration', 'Photosynthesis', 'Transpiration', 'Pollination'],
+  //       correctAnswer: 1,
+  //       explanation: 'Photosynthesis is the process by which plants use sunlight, water, and carbon dioxide to create glucose and oxygen.'
+  //     }
+  //   ]
+  // };
+
   const mcqQuizData: QuizData = {
-    subtype: 'MCQ',
-    title: 'Nature Quiz - Multiple Choice',
-    description: 'Test your knowledge about nature and wildlife',
-    theme: {
-      primaryColor: '#4CAF50',
-      secondaryColor: '#81C784',
-      backgroundColor: '#E8F5E8',
-      textColor: '#2E7D32',
-      fontFamily: 'Georgia, serif',
-      animation: 'nature',
-      iconSet: 'leaf'
-    },
-    questions: [
-      {
-        id: 1,
-        question: 'Which is the largest mammal in the world?',
-        options: ['Elephant', 'Blue Whale', 'Giraffe', 'Hippopotamus'],
-        correctAnswer: 1,
-        explanation: 'The Blue Whale is the largest mammal and largest animal that has ever lived on Earth.'
+      "subtype": "MCQ",
+      "theme": {
+        "primaryColor": "#2196f3",
+        "secondaryColor": "#1976d2",
+        "backgroundColor": "#0d47a1",
+        "textColor": "#e0dede",
+        "fontFamily": "Arial",
+        "animation": "slide-in"
       },
-      {
-        id: 2,
-        question: 'What process do plants use to make their own food?',
-        options: ['Respiration', 'Photosynthesis', 'Transpiration', 'Pollination'],
-        correctAnswer: 1,
-        explanation: 'Photosynthesis is the process by which plants use sunlight, water, and carbon dioxide to create glucose and oxygen.'
-      }
-    ]
-  };
+      "title": "Metals and Non-metals Quiz",
+      "description": "Test your knowledge about the physical and chemical properties of metals and non-metals.",
+      "questions": [
+        {
+          "id": 1,
+          "question": "Which property describes the ability of metals to be beaten into thin sheets?",
+          "options": [
+            "Ductility",
+            "Malleability",
+            "Sonority",
+            "Conductivity"
+          ],
+          "correctAnswer": 2,
+          "hint": "Think about what happens when you flatten a piece of metal with a hammer.",
+          "explanation": "Malleability is the property of a metal that allows it to be hammered or rolled into thin sheets. Gold and silver are highly malleable."
+        },
+        {
+          "id": 2,
+          "question": "What is the term for the ability of metals to be drawn into thin wires?",
+          "options": [
+            "Malleability",
+            "Sonority",
+            "Ductility",
+            "Lustre"
+          ],
+          "correctAnswer": 3,
+          "hint": "Consider what happens when metal is pulled through a small opening to create a wire.",
+          "explanation": "Ductility is the property of a metal that allows it to be stretched into thin wires. Gold is the most ductile metal."
+        },
+        {
+          "id": 3,
+          "question": "Which of the following metals is the best conductor of heat?",
+          "options": [
+            "Lead",
+            "Iron",
+            "Copper",
+            "Aluminium"
+          ],
+          "correctAnswer": 3,
+          "hint": "Consider which metal is commonly used in cookware and electrical wiring due to its heat transfer capabilities.",
+          "explanation": "Copper is one of the best conductors of heat, along with silver. This makes it suitable for applications like cooking vessels and heat sinks."
+        },
+        {
+          "id": 4,
+          "question": "What is the name given to metal oxides that react with both acids and bases?",
+          "options": [
+            "Basic Oxides",
+            "Acidic Oxides",
+            "Neutral Oxides",
+            "Amphoteric Oxides"
+          ],
+          "correctAnswer": 4,
+          "hint": "Think about a word that describes something that can act in two different ways.",
+          "explanation": "Amphoteric oxides are metal oxides that exhibit both acidic and basic properties, reacting with both acids and bases to form salts and water."
+        },
+        {
+          "id": 5,
+          "question": "Which of the following non-metals is a liquid at room temperature?",
+          "options": [
+            "Carbon",
+            "Sulphur",
+            "Bromine",
+            "Iodine"
+          ],
+          "correctAnswer": 3,
+          "hint": "Consider the state of matter of common non-metals. This element is in the halogen group.",
+          "explanation": "Bromine is the only non-metal that exists as a liquid at room temperature. Other non-metals are typically solids or gases."
+        },
+        {
+          "id": 6,
+          "question": "What is the property of metals that allows them to produce a sound when struck?",
+          "options": [
+            "Malleability",
+            "Ductility",
+            "Sonority",
+            "Lustre"
+          ],
+          "correctAnswer": 3,
+          "hint": "Think about why school bells are made of metal.",
+          "explanation": "Sonority is the property of metals that allows them to produce a ringing sound when struck. This is why metals are used in bells and musical instruments."
+        },
+        {
+          "id": 7,
+          "question": "Which of the following metals is stored immersed in kerosene oil?",
+          "options": [
+            "Magnesium",
+            "Aluminium",
+            "Sodium",
+            "Iron"
+          ],
+          "correctAnswer": 3,
+          "hint": "This metal reacts very vigorously with water and air.",
+          "explanation": "Sodium is stored immersed in kerosene oil because it reacts vigorously with both air and water, potentially causing a fire."
+        },
+        {
+          "id": 8,
+          "question": "What is the process of forming a thick oxide layer on aluminium called?",
+          "options": [
+            "Galvanization",
+            "Rusting",
+            "Anodising",
+            "Alloying"
+          ],
+          "correctAnswer": 3,
+          "hint": "This process enhances the corrosion resistance of aluminum.",
+          "explanation": "Anodising is the process of forming a thick oxide layer on aluminium to increase its corrosion resistance and allow it to be dyed easily."
+        },
+        {
+          "id": 9,
+          "question": "Which allotrope of carbon is known to be the hardest natural substance?",
+          "options": [
+            "Graphite",
+            "Coal",
+            "Diamond",
+            "Fullerene"
+          ],
+          "correctAnswer": 3,
+          "hint": "This allotrope is highly valued for its hardness and is used in cutting tools.",
+          "explanation": "Diamond, an allotrope of carbon, is the hardest naturally occurring substance and has a very high melting and boiling point."
+        },
+        {
+          "id": 10,
+          "question": "Which of the following metals does NOT react with water at all?",
+          "options": [
+            "Potassium",
+            "Calcium",
+            "Magnesium",
+            "Gold"
+          ],
+          "correctAnswer": 4,
+          "hint": "Consider the reactivity series of metals. This metal is often used in jewelry.",
+          "explanation": "Gold is a very unreactive metal and does not react with water, even at high temperatures. Other metals like potassium, calcium, and magnesium do react with water, albeit at different rates."
+        }
+      ]
+    };
 
   const trueFalseQuizData: QuizData = {
     subtype: 'TrueFalse',

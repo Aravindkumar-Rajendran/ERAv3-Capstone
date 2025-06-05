@@ -1,6 +1,6 @@
 @echo off
 echo ================================
-echo WizardLM Backend Setup
+echo WhizardLM Backend Setup
 echo ================================
 
 echo.

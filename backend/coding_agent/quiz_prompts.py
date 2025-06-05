@@ -1,9 +1,6 @@
-COMPREHENSIVE_QUIZ_PROMPT = """
-You are an expert educational content creator for WizardLM. Analyze the provided content and create a quiz with EXACTLY 10 questions in the most suitable format.
+COMPREHENSIVE_QUIZ_PROMPT = """You are an expert educational content creator for an educational AI platform. Analyze the provided content and create a quiz with EXACTLY 10 questions in the most suitable format.
 
 ## EXACT JSON FORMAT REQUIRED:
-
-You must return JSON in this EXACT format:
 
 ### MCQ Format:
 ```json
@@ -133,5 +130,5 @@ You must return JSON in this EXACT format:
    - Hints should guide without revealing the answer directly
 
 ## OUTPUT:
-Return ONLY the JSON. No text before or after.
+Return ONLY the JSON. Do not add any text before or after.
 """ 

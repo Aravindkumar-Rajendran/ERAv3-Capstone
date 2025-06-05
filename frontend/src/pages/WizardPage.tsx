@@ -4,14 +4,15 @@ import { QuizData, QuizSubtype } from '../types/quiz';
 
 export const WizardPage = () => {
   const [userContent, setUserContent] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showOptions, setShowOptions] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState<QuizData | null>(null);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleGenerateElements = () => {
-    if (!userContent.trim()) {
-      alert('Please enter some content first!');
+    if (!userContent.trim() && !selectedFile) {
+      alert('Please enter some content or upload a file first!');
       return;
     }
     setIsGenerating(true);
@@ -22,12 +23,46 @@ export const WizardPage = () => {
     }, 1500);
   };
 
-  const handleOptionClick = (option: string) => {
+  const handleOptionClick = async (option: string) => {
     if (option === 'quiz') {
-      // Simulate API call to backend with dummy response
-      const dummyQuizResponse = generateDummyQuizJSON();
-      setActiveQuiz(dummyQuizResponse);
-      setIsQuizOpen(true);
+      setIsGenerating(true);
+      
+      try {
+        // Call your backend API
+        const formData = new FormData();
+        
+        if (selectedFile) {
+          formData.append('file', selectedFile);
+        } else {
+          formData.append('content', userContent);
+        }
+        
+        const response = await fetch('http://localhost:8001/generate-quiz', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        // The API returns: { quiz_data: {...}, status: "success", message: "..." }
+        setActiveQuiz(result.quiz_data);
+        setIsQuizOpen(true);
+        
+      } catch (error) {
+        console.error('Failed to generate quiz:', error);
+        alert('Failed to generate quiz. Please make sure the backend server is running.');
+        
+        // Fallback to dummy data for testing
+        const dummyQuizResponse = generateDummyQuizJSON();
+        setActiveQuiz(dummyQuizResponse);
+        setIsQuizOpen(true);
+      }
+      
+      setIsGenerating(false);
     } else {
       alert(`${option} is currently in development. Coming soon!`);
     }
@@ -283,23 +318,86 @@ export const WizardPage = () => {
           border: '1px solid rgba(255,255,255,0.1)'
         }}>
           <h2 style={{ margin: '0 0 20px 0', color: '#64b5f6' }}>📝 Enter Your Learning Content</h2>
-          <textarea
-            value={userContent}
-            onChange={(e) => setUserContent(e.target.value)}
-            placeholder="Paste your text content here... (articles, documents, notes, etc.)"
-            style={{
-              width: '100%',
-              height: '200px',
-              background: 'rgba(0,0,0,0.3)',
-              border: '2px solid #16213e',
+          
+          {/* Text Input */}
+          <div style={{ marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '10px', color: '#64b5f6' }}>Option 1: Paste Text Content</label>
+            <textarea
+              value={userContent}
+              onChange={(e) => {
+                setUserContent(e.target.value);
+                if (e.target.value.trim()) setSelectedFile(null); // Clear file if text is entered
+              }}
+              placeholder="Paste your text content here... (articles, documents, notes, etc.)"
+              style={{
+                width: '100%',
+                height: '150px',
+                background: 'rgba(0,0,0,0.3)',
+                border: '2px solid #16213e',
+                borderRadius: '10px',
+                padding: '15px',
+                color: '#e0dede',
+                fontSize: '16px',
+                fontFamily: 'Arial, sans-serif',
+                resize: 'vertical'
+              }}
+            />
+          </div>
+
+          {/* OR Separator */}
+          <div style={{ textAlign: 'center', margin: '20px 0', color: '#888' }}>
+            <span style={{ background: 'rgba(255,255,255,0.05)', padding: '5px 15px', borderRadius: '15px' }}>OR</span>
+          </div>
+
+          {/* File Upload */}
+          <div>
+            <label style={{ display: 'block', marginBottom: '10px', color: '#64b5f6' }}>Option 2: Upload File (PDF, TXT)</label>
+            <div style={{
+              border: '2px dashed #16213e',
               borderRadius: '10px',
-              padding: '15px',
-              color: '#e0dede',
-              fontSize: '16px',
-              fontFamily: 'Arial, sans-serif',
-              resize: 'vertical'
+              padding: '20px',
+              textAlign: 'center',
+              background: 'rgba(0,0,0,0.2)',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease'
             }}
-          />
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const files = e.dataTransfer.files;
+              if (files.length > 0) {
+                setSelectedFile(files[0]);
+                setUserContent(''); // Clear text if file is uploaded
+              }
+            }}>
+              <input
+                type="file"
+                id="file-upload"
+                accept=".pdf,.txt"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    setSelectedFile(e.target.files[0]);
+                    setUserContent(''); // Clear text if file is uploaded
+                  }
+                }}
+                style={{ display: 'none' }}
+              />
+              <label htmlFor="file-upload" style={{ cursor: 'pointer', color: '#64b5f6' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📄</div>
+                {selectedFile ? (
+                  <div>
+                    <div style={{ color: '#4caf50', fontWeight: 'bold' }}>✅ {selectedFile.name}</div>
+                    <div style={{ color: '#888', fontSize: '14px' }}>Click to change file</div>
+                  </div>
+                ) : (
+                  <div>
+                    <div>Click to upload or drag & drop</div>
+                    <div style={{ color: '#888', fontSize: '14px' }}>Supported: PDF, TXT files</div>
+                  </div>
+                )}
+              </label>
+            </div>
+          </div>
         </div>
 
         {/* Generate Button */}

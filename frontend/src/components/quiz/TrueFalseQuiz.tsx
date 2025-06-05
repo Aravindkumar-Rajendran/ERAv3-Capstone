@@ -350,7 +350,10 @@ export const TrueFalseQuiz: React.FC<TrueFalseQuizProps> = ({ questions, theme, 
           fontSize: '22px',
           marginBottom: '25px',
           textAlign: 'center',
-          lineHeight: '1.4'
+          lineHeight: '1.4',
+          color: '#ffffff',
+          fontWeight: 'bold',
+          textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
         }}>
           {currentQuestion.statement}
         </h3>

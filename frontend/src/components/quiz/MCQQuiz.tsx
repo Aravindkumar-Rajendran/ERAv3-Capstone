@@ -376,7 +376,10 @@ export const MCQQuiz: React.FC<MCQQuizProps> = ({ questions, theme, onComplete }
         <h3 style={{ 
           fontSize: '22px', 
           marginBottom: '25px',
-          lineHeight: '1.4'
+          lineHeight: '1.4',
+          color: '#ffffff',
+          fontWeight: 'bold',
+          textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
         }}>
           {currentQuestion.question}
         </h3>
@@ -525,7 +528,7 @@ export const MCQQuiz: React.FC<MCQQuizProps> = ({ questions, theme, onComplete }
                 💡 Need a Hint?
               </h4>
               <p style={{ margin: '0 0 15px 0', lineHeight: '1.4' }}>
-                {getIndirectHint()}
+                {currentQuestion.hint || getIndirectHint()}
               </p>
               <button
                 onClick={retryAfterHint}

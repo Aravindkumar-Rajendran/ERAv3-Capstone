@@ -17,6 +17,7 @@ export interface MCQQuestion {
   question: string;
   options: string[];
   correctAnswer: number; // index of correct option
+  hint?: string;
   explanation?: string;
 }
 

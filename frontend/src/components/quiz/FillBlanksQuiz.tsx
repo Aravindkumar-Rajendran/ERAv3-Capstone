@@ -465,7 +465,10 @@ export const FillBlanksQuiz: React.FC<FillBlanksQuizProps> = ({ questions, theme
           fontSize: '22px',
           marginBottom: '25px',
           textAlign: 'center',
-          lineHeight: '1.4'
+          lineHeight: '1.4',
+          color: '#ffffff',
+          fontWeight: 'bold',
+          textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
         }}>
           {renderSentenceWithBlank(currentQuestion.sentence)}
         </h3>

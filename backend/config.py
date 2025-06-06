@@ -1,0 +1,37 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class Config:
+    """Application configuration"""
+    
+    # API Configuration
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    PORT = int(os.getenv("PORT", 8001))
+    
+    # CORS Configuration
+    ALLOWED_ORIGINS = [
+        "http://localhost:3000",  # React dev server
+        "http://127.0.0.1:3000",
+    ]
+    
+    # File Upload Configuration
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+    ALLOWED_FILE_TYPES = ["application/pdf", "text/plain"]
+    
+    # Content Processing
+    MAX_CONTENT_LENGTH = 15000  # characters
+    MIN_CONTENT_LENGTH = 10     # characters
+    
+    # Quiz Configuration
+    QUESTIONS_PER_QUIZ = 10
+    VALID_SUBTYPES = ["MCQ", "TrueFalse", "FillBlanks", "MatchFollowing"]
+    
+    @classmethod
+    def validate_config(cls):
+        """Validate that required configuration is present"""
+        if not cls.GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY environment variable is required")
+        
+        return True 

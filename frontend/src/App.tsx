@@ -1,18 +1,18 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import HomePage from './pages';
-import { ComponentName } from './components';
+import { WhizardPage } from './pages/WhizardPage';
+import { InteractivePage } from './pages/InteractivePage';
 import './styles/index.css';
 
-const App: React.FC = () => {
+const App = () => {
   return (
     <Router>
       <div>
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<WhizardPage />} />
+          <Route path="/old-demo" element={<InteractivePage />} />
           {/* Add more routes here as needed */}
         </Routes>
-        <ComponentName />
       </div>
     </Router>
   );

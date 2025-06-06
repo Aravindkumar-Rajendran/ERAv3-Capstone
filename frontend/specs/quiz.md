@@ -2,6 +2,30 @@
 
 This document defines the exact JSON format expected by the frontend quiz components.
 
+## 📚 Quiz System
+
+The platform supports four types of interactive quizzes:
+
+### 1. Multiple Choice Questions (MCQ)
+- 4 options (A-D)
+- Indirect hints on wrong answers
+- Scoring: 1.0 point (first correct), 0.5 points (second attempt)
+
+### 2. True/False Questions
+- Hint button available before answering
+- 0.5 points if hint is used, 1.0 point without hint
+- Star animations for correct answers
+
+### 3. Fill-in-the-Blanks
+- Advanced validation with fuzzy matching
+- Case-insensitive and flexible number formats
+- Multiple acceptable answers support
+
+### 4. Matching Questions
+- Click-to-pair interface
+- Fixed positioning with shuffled initial state
+- Submit when all pairs are matched
+
 ## Base Quiz Structure
 
 ```json

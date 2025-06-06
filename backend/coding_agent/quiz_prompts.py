@@ -21,7 +21,7 @@ COMPREHENSIVE_QUIZ_PROMPT = """You are an expert educational content creator for
       "id": 1,
       "question": "[Question from content]",
       "options": ["[Option 1]", "[Option 2]", "[Option 3]", "[Option 4]"],
-      "correctAnswer": 1,
+      "correctAnswer": 1,  # 0-3 for 4 options
       "hint": "[Helpful hint from content]",
       "explanation": "[Explanation from content]"
     }

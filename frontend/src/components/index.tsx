@@ -15,3 +15,8 @@ export { MCQQuiz } from './quiz/MCQQuiz';
 export { TrueFalseQuiz } from './quiz/TrueFalseQuiz';
 export { FillBlanksQuiz } from './quiz/FillBlanksQuiz';
 export { MatchFollowingQuiz } from './quiz/MatchFollowingQuiz';
+
+// Timeline Component
+export { Timeline } from './timeline';
+
+// Other components can be exported here as needed

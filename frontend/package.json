@@ -1,7 +1,7 @@
 {
-  "name": "frontend",
+  "name": "WhiZardLM",
   "version": "1.0.0",
-  "description": "A React application for the frontend.",
+  "description": "WhiZardLM - NotebookLM for School Students",
   "main": "src/App.tsx",
   "scripts": {
     "start": "set NODE_OPTIONS=--openssl-legacy-provider && react-scripts start",

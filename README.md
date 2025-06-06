@@ -14,32 +14,11 @@ An interactive educational platform that transforms user content into engaging l
 
 ```
 ERAv3-Capstone/
-├── .git/                     # Git version control
+├── .git/                    # Git version control
 ├── .gitignore               # Git ignore rules
 ├── README.md                # Project documentation
 ├── frontend/                # React application
-│   ├── public/
-│   │   └── index.html       # Main HTML template
-│   ├── src/
-│   │   ├── components/      # Reusable React components
-│   │   ├── pages/           # Page components
-│   │   │   ├── WhizardPage.tsx
-│   │   │   └── InteractivePage.tsx
-│   │   ├── styles/          # CSS stylesheets
-│   │   │   └── index.css
-│   │   ├── types/           # TypeScript definitions
-│   │   ├── App.tsx          # Main app component
-│   │   └── index.tsx        # React entry point
-│   ├── package.json         # Dependencies & scripts
-│   ├── tsconfig.json        # TypeScript config
-│   └── QUIZ_JSON_SPECIFICATION.md  # Quiz format docs
 └── backend/                 # Python backend services
-    ├── coding_agent/        # Code generation agent
-    │   └── main.py
-    ├── rag_agent/          # RAG processing agent
-    │   └── main.py
-    └── socratic_agent/     # Socratic learning agent
-        └── main.py
 ```
 
 ## 🚀 Getting Started
@@ -72,6 +51,12 @@ The frontend will be available at `http://localhost:3000`
 # Navigate to backend directory
 cd backend
 
+# create a virtual environment
+python -m venv venv
+
+# activate the virtual environment
+venv\Scripts\activate
+
 # Install Python dependencies (when available)
 pip install -r requirements.txt
 
@@ -79,46 +64,6 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## 📚 Quiz System
-
-The platform supports four types of interactive quizzes:
-
-### 1. Multiple Choice Questions (MCQ)
-- 4 options (A-D)
-- Indirect hints on wrong answers
-- Scoring: 1.0 point (first correct), 0.5 points (second attempt)
-
-### 2. True/False Questions
-- Hint button available before answering
-- 0.5 points if hint is used, 1.0 point without hint
-- Star animations for correct answers
-
-### 3. Fill-in-the-Blanks
-- Advanced validation with fuzzy matching
-- Case-insensitive and flexible number formats
-- Multiple acceptable answers support
-
-### 4. Matching Questions
-- Click-to-pair interface
-- Fixed positioning with shuffled initial state
-- Submit when all pairs are matched
-
-## 🎨 Customization
-
-Quiz themes and styling are controlled through JSON configuration:
-
-```json
-{
-  "theme": {
-    "primaryColor": "#8B5CF6",
-    "secondaryColor": "#3B82F6",
-    "backgroundColor": "#F8FAFC",
-    "textColor": "#1F2937"
-  }
-}
-```
-
-See `QUIZ_JSON_SPECIFICATION.md` for complete format documentation.
 
 ## 🛠️ Technologies Used
 
@@ -141,9 +86,7 @@ See `QUIZ_JSON_SPECIFICATION.md` for complete format documentation.
 - 🔄 Backend agents (in development)
 - 🔄 Content generation pipeline
 
-## 🤝 Contributing
 
-This project is part of the ERAv3 Capstone program. 
 
 ### Git Workflow
 
@@ -159,9 +102,6 @@ git commit -m "Add your feature"
 git push origin feature/your-feature-name
 ```
 
-## 📄 License
-
-This project is part of the ERAv3 Capstone program.
 
 ## 🎯 Roadmap
 

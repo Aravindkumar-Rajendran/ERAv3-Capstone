@@ -1,256 +1,316 @@
-import React, { useState } from 'react';
-import { QuizComponent } from '../components/QuizComponent';
-import { QuizData, QuizSubtype } from '../types/quiz';
+import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FiUpload, FiFileText, FiCheckCircle, FiX, FiLoader, FiPlus, FiAlertCircle } from 'react-icons/fi';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// Import components
+import { Quiz } from '../components/quiz/Quiz';
+import { Flashcard } from '../components/flashcard/Flashcard';
+import { Mindmap } from '../components/mindmap';
+import { Timeline } from '../components/timeline';
+
+interface MindmapNode {
+  id: string;
+  label: string;
+  children?: MindmapNode[];
+}
+
+interface MindmapData {
+  id: string;
+  label: string;
+  children?: MindmapNode[];
+}
+
+// Import types and interfaces
+import { 
+  QuizData, 
+  QuizSubtype, 
+  FlashcardData, 
+  MindmapData, 
+  TimelineEvent, 
+  Theme, 
+  InteractiveType 
+} from '../types/interactive';
+
+interface InteractiveOption {
+  type: InteractiveType;
+  label: string;
+  icon: string;
+  color: string;
+}
 
 export const WhizardPage = () => {
+  // Form state
   const [userContent, setUserContent] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [showOptions, setShowOptions] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // State for interactive components
   const [activeQuiz, setActiveQuiz] = useState<QuizData | null>(null);
+  const [activeFlashcards, setActiveFlashcards] = useState<FlashcardData | null>(null);
+  const [activeMindmap, setActiveMindmap] = useState<MindmapData | null>(null);
+  const [activeTimeline, setActiveTimeline] = useState<TimelineEvent[]>([]);
+  
+  // Modal states
   const [isQuizOpen, setIsQuizOpen] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isFlashcardsOpen, setIsFlashcardsOpen] = useState(false);
+  const [isMindmapOpen, setIsMindmapOpen] = useState(false);
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  
+  // Track current quiz index for cycling through quiz types
+  const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
+  const [showOptions, setShowOptions] = useState(false);
+  
+  // Interactive options
+  const interactiveOptions: InteractiveOption[] = [
+    { type: 'quiz', label: 'Quiz', icon: '📝', color: 'bg-blue-500 hover:bg-blue-600' },
+    { type: 'flashcards', label: 'Flashcards', icon: '🔖', color: 'bg-green-500 hover:bg-green-600' },
+    { type: 'mindmap', label: 'Mind Map', icon: '🗺️', color: 'bg-purple-500 hover:bg-purple-600' },
+    { type: 'timeline', label: 'Timeline', icon: '⏳', color: 'bg-yellow-500 hover:bg-yellow-600' },
+  ];
 
   const handleGenerateElements = () => {
     if (!userContent.trim() && !selectedFile) {
       alert('Please enter some content or upload a file first!');
       return;
     }
-    setIsGenerating(true);
+    setIsLoading(true);
     // Simulate processing time
     setTimeout(() => {
-      setIsGenerating(false);
+      setIsLoading(false);
       setShowOptions(true);
     }, 1500);
   };
 
-  const handleOptionClick = async (option: string) => {
-    if (option === 'quiz') {
-      setIsGenerating(true);
-      
-      try {
-        // Call your backend API
-        const formData = new FormData();
-        
-        if (selectedFile) {
-          formData.append('file', selectedFile);
-        } else {
-          formData.append('content', userContent);
+  const handleOptionClick = (option: { id: string; name: string; icon: string; color: string; label: string }) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Generate dummy data based on the selected option
+      switch (option.id) {
+        case 'quiz': {
+          const quizData = generateDummyQuizJSON();
+          setActiveQuiz(quizData);
+          setIsQuizOpen(true);
+          break;
         }
-        
-        const response = await fetch('http://localhost:8001/generate-quiz', {
-          method: 'POST',
-          body: formData,
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        case 'flashcards': {
+          const flashcardData = generateDummyFlashcardJSON();
+          setActiveFlashcards(flashcardData);
+          setIsFlashcardsOpen(true);
+          break;
         }
-        
-        const result = await response.json();
-        
-        // The API returns: { quiz_data: {...}, status: "success", message: "..." }
-        setActiveQuiz(result.quiz_data);
-        setIsQuizOpen(true);
-        
-      } catch (error) {
-        console.error('Failed to generate quiz:', error);
-        alert('Failed to generate quiz. Please make sure the backend server is running.');
-        
-        // Fallback to dummy data for testing
-        const dummyQuizResponse = generateDummyQuizJSON();
-        setActiveQuiz(dummyQuizResponse);
-        setIsQuizOpen(true);
+        case 'mindmap': {
+          const mindmapData = generateDummyMindmapJSON();
+          setActiveMindmap(mindmapData);
+          setIsMindmapOpen(true);
+          break;
+        }
+        case 'timeline': {
+          const timelineData = generateDummyTimelineJSON();
+          setActiveTimeline(timelineData);
+          setIsTimelineOpen(true);
+          break;
+        }
+        default:
+          console.warn('Unknown option:', option.id);
       }
-      
-      setIsGenerating(false);
-    } else {
-      alert(`${option} is currently in development. Coming soon!`);
+    } catch (error) {
+      console.error('Error generating interactive content:', error);
+      setError('Failed to generate interactive content. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
-  
-  const generateDummyQuizJSON = (): QuizData => {
-    // Demo: cycle through quiz types one by one for easy testing
-    const subtypes: QuizSubtype[] = ['MCQ', 'TrueFalse', 'FillBlanks', 'MatchFollowing'];
-    const currentSubtype = subtypes[currentQuizIndex];
-    
-    // Move to next quiz type for next time
-    setCurrentQuizIndex((prev) => (prev + 1) % subtypes.length);
-    
-    const baseTheme = {
-      primaryColor: '#16213e',
-      secondaryColor: '#0f3460',
-      backgroundColor: '#1a1a2e',
-      textColor: '#e0dede',
-      fontFamily: 'Arial',
-      animation: 'slide-in'
-    };
+  const handleQuizClose = () => {
+    setIsQuizOpen(false);
+    setActiveQuiz(null);
+  };
 
+  const handleQuizComplete = (score: number) => {
+    console.log(`Quiz completed! Score: ${score}`);
+    // Handle quiz completion logic here
+  };
+
+  const generateDummyQuizJSON = (): QuizData => {
+    const subtypes: QuizSubtype[] = ['MCQ', 'TrueFalse', 'FillBlanks', 'MatchFollowing'];
+    const currentSubtype = subtypes[currentQuizIndex % subtypes.length];
+    
+    // Common theme properties
+    const theme: Theme = {
+      primaryColor: '#4f46e5',
+      secondaryColor: '#818cf8',
+      fontFamily: 'Inter, sans-serif'
+    };
+    
+    const now = new Date().toISOString();
+    
     switch (currentSubtype) {
       case 'MCQ':
         return {
+          id: `quiz-${Date.now()}`,
+          type: 'quiz',
           subtype: 'MCQ',
-          theme: baseTheme,
-          title: 'Multiple Choice Quiz',
-          description: 'Choose the best answer for each question.',
+          title: 'Sample MCQ Quiz',
+          description: 'Test your knowledge with multiple choice questions',
+          theme,
           questions: [
             {
-              id: 1,
-              question: "What is the capital of Japan?",
-              options: ["Seoul", "Tokyo", "Beijing", "Bangkok"],
-              correctAnswer: 1,
-              explanation: "Tokyo is the capital and largest city of Japan."
+              id: 'q1',
+              question: 'What is the capital of France?',
+              options: ['London', 'Berlin', 'Paris', 'Madrid'],
+              correctAnswer: 'Paris',
+              explanation: 'Paris is the capital of France.'
             },
             {
-              id: 2,
-              question: "Which planet is known as the Red Planet?",
-              options: ["Venus", "Mars", "Jupiter", "Saturn"],
-              correctAnswer: 1,
-              explanation: "Mars is called the Red Planet due to iron oxide on its surface."
-            },
-            {
-              id: 3,
-              question: "Who wrote 'Romeo and Juliet'?",
-              options: ["Charles Dickens", "William Shakespeare", "Jane Austen", "Mark Twain"],
-              correctAnswer: 1,
-              explanation: "Romeo and Juliet is a tragedy written by William Shakespeare."
-            },
-            {
-              id: 4,
-              question: "What is the largest ocean on Earth?",
-              options: ["Atlantic Ocean", "Indian Ocean", "Arctic Ocean", "Pacific Ocean"],
-              correctAnswer: 3,
-              explanation: "The Pacific Ocean covers about 46% of the water surface of Earth."
-            },
-            {
-              id: 5,
-              question: "Which gas makes up most of Earth's atmosphere?",
-              options: ["Oxygen", "Carbon Dioxide", "Nitrogen", "Hydrogen"],
-              correctAnswer: 2,
-              explanation: "Nitrogen makes up about 78% of Earth's atmosphere."
+              id: 'q2',
+              question: 'Which planet is known as the Red Planet?',
+              options: ['Venus', 'Mars', 'Jupiter', 'Saturn'],
+              correctAnswer: 'Mars',
+              explanation: 'Mars is often called the Red Planet due to its reddish appearance.'
             }
-          ]
+          ],
+          createdAt: now,
+          updatedAt: now
         };
-
+      
       case 'TrueFalse':
         return {
+          id: `quiz-${Date.now()}`,
+          type: 'quiz',
           subtype: 'TrueFalse',
-          theme: { ...baseTheme, backgroundColor: '#0f0f0f', textColor: '#d0f0ff' },
-          title: 'True or False Quiz',
-          description: 'Determine whether each statement is true or false.',
+          title: 'Sample True/False Quiz',
+          description: 'Test your knowledge with true/false questions',
+          theme: {
+            ...theme,
+            primaryColor: '#10b981',
+            secondaryColor: '#6ee7b7'
+          },
           questions: [
             {
-              id: 1,
-              statement: "The Earth is the third planet from the Sun.",
-              correctAnswer: true,
-              hint: "Think about the order: Mercury, Venus, then what?",
-              explanation: "Yes, Earth is the third planet from the Sun after Mercury and Venus."
+              id: 'q1',
+              question: 'The Earth is flat.',
+              options: ['True', 'False'],
+              correctAnswer: 'False',
+              explanation: 'The Earth is an oblate spheroid, not flat.'
             },
             {
-              id: 2,
-              statement: "Water boils at 90°C at sea level.",
-              correctAnswer: false,
-              hint: "Remember the temperature when water bubbles on your stove.",
-              explanation: "False. Water boils at 100°C (212°F) at sea level."
-            },
-            {
-              id: 3,
-              statement: "Humans have five senses.",
-              correctAnswer: true,
-              hint: "Count them: sight, hearing, taste, smell, and one more.",
-              explanation: "True. The five senses are sight, hearing, taste, smell, and touch."
-            },
-            {
-              id: 4,
-              statement: "Lightning never strikes the same place twice.",
-              correctAnswer: false,
-              hint: "Think about tall buildings and lightning rods.",
-              explanation: "False. Lightning can and often does strike the same place multiple times."
-            },
-            {
-              id: 5,
-              statement: "The Great Wall of China is visible from space.",
-              correctAnswer: false,
-              hint: "Consider how wide the wall actually is compared to the distance from space.",
-              explanation: "False. The Great Wall is not visible from space with the naked eye."
+              id: 'q2',
+              question: 'The Great Wall of China is visible from space.',
+              options: ['True', 'False'],
+              correctAnswer: 'False',
+              explanation: 'The Great Wall is generally not visible to the naked eye from space.'
             }
-          ]
+          ],
+          createdAt: now,
+          updatedAt: now
         };
 
       case 'FillBlanks':
         return {
+          id: `quiz-${Date.now()}`,
+          type: 'quiz',
           subtype: 'FillBlanks',
-          theme: { ...baseTheme, backgroundColor: '#1c1c1c', textColor: '#f0e6d2' },
-          title: 'Fill in the Blanks',
-          description: 'Complete each sentence by filling in the missing word.',
+          title: 'Sample Fill in the Blanks',
+          description: 'Test your knowledge by filling in the blanks',
+          theme: {
+            ...theme,
+            primaryColor: '#f59e0b',
+            secondaryColor: '#fbbf24'
+          },
           questions: [
             {
-              id: 1,
-              sentence: "The first man to walk on the moon was Neil [BLANK].",
-              correctAnswers: ["Armstrong"],
-              hint: "His last name is also a word meaning strong arm.",
-              explanation: "Neil Armstrong was the first person to walk on the moon in 1969."
+              id: 'q1',
+              question: 'The capital of France is ________.',
+              options: ['Paris'],
+              correctAnswer: 'Paris',
+              explanation: 'Paris is the capital of France.'
             },
             {
-              id: 2,
-              sentence: "World War II ended in the year [BLANK].",
-              correctAnswers: ["1945"],
-              hint: "It was in the mid-1940s, after lasting about 6 years.",
-              explanation: "World War II officially ended in 1945 with Japan's surrender."
+              id: 'q2',
+              question: 'The chemical symbol for gold is ________.',
+              options: ['Au'],
+              correctAnswer: 'Au',
+              explanation: 'Au is the chemical symbol for gold from the Latin "aurum."'
+            }
+          ],
+          createdAt: now,
+          updatedAt: now
+        };
+      
+      case 'MatchFollowing':
+        return {
+          id: `quiz-${Date.now()}`,
+          type: 'quiz',
+          subtype: 'MatchFollowing',
+          title: 'Sample Matching Quiz',
+          description: 'Test your knowledge by matching related items',
+          theme: {
+            ...theme,
+            primaryColor: '#8b5cf6',
+            secondaryColor: '#c4b5fd'
+          },
+          questions: [
+            {
+              id: 'q1',
+              question: 'Match the countries with their capitals:',
+              options: [
+                'France', 'Germany', 'Italy',
+                'Paris', 'Berlin', 'Rome'
+              ],
+              correctAnswer: ['France-Paris', 'Germany-Berlin', 'Italy-Rome'],
+              explanation: 'Matching the correct capitals to their countries.'
             },
             {
-              id: 3,
-              sentence: "The largest continent by area is [BLANK].",
-              correctAnswers: ["Asia"],
-              hint: "It's home to countries like China, India, and Russia.",
-              explanation: "Asia is the largest continent covering about 30% of Earth's land area."
+              id: 'q2',
+              question: 'Match the elements with their symbols:',
+              options: ['Gold', 'Silver', 'Copper', 'Au', 'Ag', 'Cu'],
+              correctAnswer: ['Gold-Au', 'Silver-Ag', 'Copper-Cu'],
+              explanation: 'Matching elements with their chemical symbols.'
             },
             {
-              id: 4,
-              sentence: "The currency used in Japan is the [BLANK].",
-              correctAnswers: ["Yen"],
-              hint: "It's a three-letter word starting with Y.",
-              explanation: "The Japanese Yen is the official currency of Japan."
-            },
-            {
-              id: 5,
-              sentence: "The study of earthquakes is called [BLANK].",
-              correctAnswers: ["Seismology"],
-              hint: "It starts with 'seismo' which relates to shaking or vibration.",
-              explanation: "Seismology is the scientific study of earthquakes and seismic waves."
+              id: 'q3',
+              question: 'Match the following scientific terms with their definitions:',
+              options: [
+                'Mitochondria', 'DNA', 'Photosynthesis',
+                'Powerhouse of the cell', 'Genetic material', 'Process plants use to make food'
+              ],
+              correctAnswer: [
+                'Mitochondria-Powerhouse of the cell', 
+                'DNA-Genetic material', 
+                'Photosynthesis-Process plants use to make food'
+              ],
+              explanation: 'Mitochondria generate energy for cells, DNA carries genetic information, and photosynthesis is how plants produce food using sunlight.'
             }
           ]
         };
 
-      case 'MatchFollowing':
-        return {
-          subtype: 'MatchFollowing',
-          theme: { ...baseTheme, backgroundColor: '#202020', textColor: '#ffffff' },
-          title: 'Match the Following',
-          description: 'Match items from the left column with their corresponding items on the right.',
-          questions: [
-                          {
-                id: 1,
-                instruction: "Match each person/place with their correct category:",
-                              pairs: [
-                { id: 1, left: "Shakespeare", right: "Writer" },
-                { id: 2, left: "Paris", right: "Capital" },
-                { id: 3, left: "Einstein", right: "Scientist" },
-                { id: 4, left: "Piano", right: "Instrument" },
-                { id: 5, left: "Pacific", right: "Ocean" }
-              ]
-              }
-          ]
-        };
-
       default:
-        // Fallback to MCQ
         return {
+          id: `quiz-${Date.now()}`,
+          type: 'quiz',
           subtype: 'MCQ',
-          theme: baseTheme,
-          title: 'Quiz',
-          questions: []
+          title: 'Default Quiz',
+          description: 'A sample quiz',
+          theme: {
+            primaryColor: '#4f46e5',
+            secondaryColor: '#818cf8',
+            fontFamily: 'Inter, sans-serif'
+          },
+          questions: [
+            {
+              id: 'q1',
+              question: 'This is a sample question?',
+              options: ['Option 1', 'Option 2', 'Option 3', 'Option 4'],
+              correctAnswer: 'Option 1',
+              explanation: 'This is the correct answer explanation.'
+            }
+          ],
+          createdAt: now,
+          updatedAt: now
         };
     }
   };
@@ -265,39 +325,139 @@ export const WhizardPage = () => {
     // User will click "Home" button to close
   };
 
-  return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-      color: '#e0dede',
-      fontFamily: 'Arial, sans-serif'
-    }}>
-      {/* Header */}
-      <div style={{
-        background: 'rgba(0,0,0,0.3)',
-        padding: '20px',
-        borderBottom: '2px solid #16213e'
-      }}>
-        <h1 style={{
-          margin: 0,
-          textAlign: 'center',
-          fontSize: '2.5rem',
-          background: 'linear-gradient(45deg, #64b5f6, #42a5f5, #2196f3)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          textShadow: '0 0 20px rgba(33, 150, 243, 0.3)'
-        }}>
-          🧙‍♂️ WhizardLM
-        </h1>
-        <p style={{
-          textAlign: 'center',
-          margin: '10px 0 0 0',
-          opacity: 0.8,
-          fontSize: '1.1rem'
-        }}>
-          AI-Powered Interactive Learning Platform
-        </p>
+  // Helper function to render mindmap nodes recursively
+  const renderMindmapNode = (node: MindmapNode, level = 0): JSX.Element => {
+    const indent = level * 20;
+    return (
+      <div key={node.id} style={{ marginLeft: `${indent}px`, marginTop: '5px', padding: '5px', borderLeft: '2px solid #4a5568' }}>
+        <div className="font-medium text-gray-100">{node.label}</div>
+        {node.children?.map((child) => renderMindmapNode(child, level + 1))}
       </div>
+    );
+  };
+
+  // Helper function to generate a simple mindmap structure
+  const generateDummyMindmapJSON = (): MindmapData => ({
+    id: '1',
+    label: 'Main Topic',
+    children: [
+      { id: '2', label: 'Subtopic 1' },
+      { 
+        id: '3', 
+        label: 'Subtopic 2', 
+        children: [
+          { id: '4', label: 'Detail 1' },
+          { id: '5', label: 'Detail 2' }
+        ]
+      }
+    ]
+  });
+
+  const generateDummyTimelineJSON = (): TimelineEvent[] => {
+    // This function is now properly typed to return TimelineEvent[]
+    return [
+      {
+        id: 1,
+        title: 'Project Kickoff',
+        description: 'Initial project planning and requirements gathering.',
+        date: '2024-01-15'
+      },
+      {
+        id: 2,
+        title: 'UI/UX Design',
+        description: 'Created wireframes and design mockups for the application.',
+        date: '2024-02-01'
+      },
+      {
+        id: 3,
+        title: 'Development Started',
+        description: 'Began implementation of core features and components.',
+        date: '2024-02-15'
+      },
+      {
+        id: 4,
+        title: 'Alpha Release',
+        description: 'First testable version released to internal team.',
+        date: '2024-03-15'
+      },
+      {
+        id: 5,
+        title: 'Beta Testing',
+        description: 'Beta version released to select users for testing.',
+        date: '2024-04-01'
+      },
+      {
+        id: 6,
+        title: 'Official Launch',
+        description: 'Application officially launched to the public.',
+        date: '2024-05-01'
+      }
+    ];
+  };
+
+  const handleTimelineClose = () => {
+    setIsTimelineOpen(false);
+    setActiveTimeline([]);
+  };
+
+  const handleTimelineComplete = () => {
+    // Timeline completion is now handled in-page by the timeline component
+    // User will click "Home" button to close
+  };
+
+  // Interactive component options
+  const interactiveComponents = [
+    {
+      id: 'quiz',
+      name: 'quiz',
+      label: 'Quiz',
+      icon: '📝',
+      description: 'Test your knowledge with interactive quizzes',
+      color: 'bg-blue-500 hover:bg-blue-600',
+      action: () => handleOptionClick('quiz' as InteractiveType)
+    },
+    {
+      id: 'flashcards',
+      name: 'flashcards',
+      label: 'Flashcards',
+      icon: '📚',
+      description: 'Study with digital flashcards',
+      color: 'bg-green-500 hover:bg-green-600',
+      action: () => handleOptionClick('flashcards' as InteractiveType)
+    },
+    {
+      id: 'mindmap',
+      name: 'mindmap',
+      label: 'Mind Map',
+      icon: '🗺️',
+      description: 'Visualize concepts with mind maps',
+      color: 'bg-purple-500 hover:bg-purple-600',
+      action: () => handleOptionClick('mindmap' as InteractiveType)
+    },
+    {
+      id: 'timeline',
+      name: 'timeline',
+      label: 'Timeline',
+      icon: '⏳',
+      description: 'Explore events chronologically',
+      color: 'bg-yellow-500 hover:bg-yellow-600',
+      action: () => handleOptionClick('timeline' as InteractiveType)
+    }
+  ] as const;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-gray-100">
+      {/* Header */}
+      <header className="bg-gray-900/50 backdrop-blur-sm border-b border-gray-800 py-6">
+        <div className="container mx-auto px-4">
+          <h1 className="text-4xl font-bold text-center bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+            🧙‍♂️ WhizardLM
+          </h1>
+          <p className="text-center text-gray-400 mt-2">
+            AI-Powered Interactive Learning Platform
+          </p>
+        </div>
+      </header>
 
       {/* Main Content */}
       <div style={{
@@ -386,70 +546,102 @@ export const WhizardPage = () => {
                 <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📄</div>
                 {selectedFile ? (
                   <div>
-                    <div style={{ color: '#4caf50', fontWeight: 'bold' }}>✅ {selectedFile.name}</div>
-                    <div style={{ color: '#888', fontSize: '14px' }}>Click to change file</div>
+                    <p>Selected file: {selectedFile.name}</p>
+                    <p style={{ fontSize: '0.9rem', color: '#aaa' }}>Click to change file</p>
                   </div>
                 ) : (
                   <div>
-                    <div>Click to upload or drag & drop</div>
-                    <div style={{ color: '#888', fontSize: '14px' }}>Supported: PDF, TXT files</div>
+                    <p>Drag and drop a file here, or click to select a file</p>
+                    <p style={{ fontSize: '0.9rem', color: '#aaa' }}>Supports PDF and TXT files</p>
                   </div>
                 )}
               </label>
             </div>
           </div>
+          
+          {/* Generate Button */}
+          <button
+            onClick={handleGenerateElements}
+            disabled={isLoading || (!userContent.trim() && !selectedFile)}
+            style={{
+              background: 'linear-gradient(45deg, #4a6cf7, #6a11cb)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '10px',
+              padding: '15px 30px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              cursor: (!userContent.trim() && !selectedFile) ? 'not-allowed' : 'pointer',
+              opacity: (!userContent.trim() && !selectedFile) ? 0.6 : 1,
+              marginTop: '20px',
+              width: '100%',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseOver={(e) => {
+              if (userContent.trim() || selectedFile) {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)';
+              }
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            {isLoading ? 'Generating...' : 'Generate Interactive Content'}
+          </button>
         </div>
+        
+        {/* Interactive Options */}
+        {isLoading && (
+          <div style={{ textAlign: 'center', margin: '40px 0' }}>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+            <p style={{ marginTop: '10px', color: '#64b5f6' }}>Generating your content...</p>
+          </div>
+        )}
 
-        {/* Generate Button */}
-        <button
-          onClick={handleGenerateElements}
-          disabled={isGenerating}
-          style={{
-            background: isGenerating 
-              ? 'linear-gradient(45deg, #666, #888)' 
-              : 'linear-gradient(45deg, #2196f3, #21cbf3)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '25px',
-            padding: '15px 40px',
-            fontSize: '18px',
-            fontWeight: 'bold',
-            cursor: isGenerating ? 'not-allowed' : 'pointer',
-            transition: 'all 0.3s ease',
-            boxShadow: '0 4px 20px rgba(33, 150, 243, 0.3)',
-            marginBottom: '40px'
-          }}
-        >
-          {isGenerating ? '🔄 Generating...' : '✨ Generate Interactive Elements'}
-        </button>
+        {/* Timeline Modal */}
+        {isTimelineOpen && activeTimeline.length > 0 && (
+          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-800 rounded-lg p-6 w-full max-w-6xl max-h-[90vh] flex flex-col">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-white">Project Timeline</h2>
+                <button
+                  onClick={handleTimelineClose}
+                  className="text-gray-400 hover:text-white transition-colors"
+                  aria-label="Close timeline"
+                >
+                  <FiX size={28} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto pr-2">
+                <Timeline events={activeTimeline} />
+              </div>
+              <div className="mt-6 pt-4 border-t border-gray-700 flex justify-end">
+                <button
+                  onClick={handleTimelineClose}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+                >
+                  Close Timeline
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
-        {/* Options */}
-        {showOptions && (
-          <div style={{
-            width: '100%',
-            background: 'rgba(255,255,255,0.05)',
-            borderRadius: '15px',
-            padding: '30px',
-            border: '1px solid rgba(255,255,255,0.1)',
-            animation: 'fadeIn 0.5s ease-in'
-          }}>
-            <h3 style={{ textAlign: 'center', marginBottom: '30px', color: '#64b5f6' }}>
-              🎯 Choose an Interactive Element:
-            </h3>
+        {!isLoading && (userContent || selectedFile) && (
+          <div style={{ width: '100%', marginTop: '30px' }}>
+            <h2 style={{ margin: '0 0 20px 0', color: '#64b5f6' }}>🎯 Choose Interactive Content Type</h2>
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '20px'
+              gap: '20px',
+              marginTop: '20px'
             }}>
-              {[
-                { name: 'Quiz', icon: '🧠', color: '#4caf50', id: 'quiz' },
-                { name: 'Timeline', icon: '⏰', color: '#ff9800', id: 'timeline' },
-                { name: 'Mind Map', icon: '🗺️', color: '#9c27b0', id: 'mindmap' },
-                { name: 'Flashcards', icon: '📚', color: '#f44336', id: 'flashcards' }
-              ].map((option) => (
+              {interactiveComponents.map((option) => (
                 <button
                   key={option.id}
-                  onClick={() => handleOptionClick(option.id)}
+                  onClick={() => handleOptionClick(option)}
                   style={{
                     background: `linear-gradient(45deg, ${option.color}, ${option.color}dd)`,
                     color: 'white',
@@ -462,8 +654,8 @@ export const WhizardPage = () => {
                     transition: 'transform 0.2s ease',
                     textAlign: 'center'
                   }}
-                  onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-3px)'}
-                  onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                  onMouseOver={(e) => (e.currentTarget.style.transform = 'translateY(-3px)')}
+                  onMouseOut={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
                 >
                   <div style={{ fontSize: '2rem', marginBottom: '10px' }}>{option.icon}</div>
                   {option.name}

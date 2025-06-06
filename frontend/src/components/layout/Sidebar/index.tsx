@@ -20,6 +20,7 @@ import {
   Quiz as QuizIcon,
   Timeline as TimelineIcon,
   MenuBook as MenuBookIcon,
+  Code as CodeIcon,
   ExpandLess,
   ExpandMore,
   StarBorder,
@@ -155,6 +156,25 @@ const Sidebar = () => {
               primaryTypographyProps={{
                 color: isActive('/timeline') ? 'primary' : 'inherit',
                 fontWeight: isActive('/timeline') ? 'medium' : 'regular'
+              }}
+            />
+          </ListItemButton>
+        </ListItem>
+
+        {/* Playground */}
+        <ListItem disablePadding>
+          <ListItemButton 
+            selected={isActive('/playground')}
+            onClick={() => navigate('/playground')}
+          >
+            <ListItemIcon>
+              <CodeIcon color={isActive('/playground') ? 'primary' : 'inherit'} />
+            </ListItemIcon>
+            <ListItemText 
+              primary="Playground" 
+              primaryTypographyProps={{
+                color: isActive('/playground') ? 'primary' : 'inherit',
+                fontWeight: isActive('/playground') ? 'medium' : 'regular'
               }}
             />
           </ListItemButton>

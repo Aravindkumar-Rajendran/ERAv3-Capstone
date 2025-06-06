@@ -12,6 +12,7 @@ const Login = lazy(() => import('../pages/Login'));
 const Signup = lazy(() => import('../pages/Signup'));
 const Dashboard = lazy(() => import('../pages/Dashboard'));
 const Chat = lazy(() => import('../pages/Chat'));
+const Playground = lazy(() => import('../pages/Playground'));
 
 // Loading component for Suspense fallback
 const Loader = () => (
@@ -61,6 +62,7 @@ const AppRoutes = () => {
           <Route path="/" element={<Home />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/chat" element={<Chat />} />
+          <Route path="/playground" element={<Playground />} />
         </Route>
 
         {/* 404 route */}

@@ -1,23 +1,21 @@
-# coding agent
-
-import os
-import json
-from typing import Optional, Union
+from typing import Optional, List
+import uvicorn
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import uvicorn
-from dotenv import load_dotenv
 
-from coding_agent.gemini_client import GeminiClient
-from coding_agent.quiz_prompts import COMPREHENSIVE_QUIZ_PROMPT
-from pdf_extractor import extract_text_from_pdf
+from models import QuizRequest, QuizResponse
+from utils.gemini_client import GeminiClient
+from prompts.quiz import COMPREHENSIVE_QUIZ_PROMPT
+from utils.preprocessor import Chunker, Extractor
+from utils.vector_store import Indexer, Retriever
 from config import Config
+
+from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(title="WhizardLM Quiz Generator", version="1.0.0")
+app = FastAPI(title="WhizardLM", version="0.0.1")
 
 # CORS middleware for frontend communication
 app.add_middleware(
@@ -30,24 +28,119 @@ app.add_middleware(
 
 # Initialize Gemini client
 gemini_client = GeminiClient()
+extractor = Extractor()
+chunker = Chunker()
+indexer = Indexer()
 
-class QuizRequest(BaseModel):
-    content: str
-    format_type: str = "quiz"
-
-class QuizResponse(BaseModel):
-    quiz_data: dict
-    status: str
-    message: str
 
 @app.get("/")
-async def root():
-    return {"message": "WhizardLM Quiz Generator API", "status": "running"}
+def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "WhizardLM API"}
 
-@app.post("/generate-quiz", response_model=QuizResponse)
-async def generate_quiz(
-    content: Optional[str] = Form(None),
-    file: Optional[UploadFile] = File(None)
+@app.post("/upload")
+async def upload(
+    text: Optional[str] = Form(None),
+    files: Optional[List[UploadFile]] = File(None),
+    youtube_urls: Optional[List[str]] = Form(None),
+):
+    """
+    Upload text, PDF files, or YouTube URLs to generate a quiz.
+    The LLM will analyze the content and choose the best quiz subtype.
+
+    RAG Data Ingestion process
+        1. Extract content from file
+        2. Chunk content into smaller segments
+        3. Convert content to embeddings
+        4. Store embeddings in vector database (ChromaDB)
+    """
+    
+    try:
+        # Extract content from text or file
+        content = []
+        if files:
+            for file in files:
+                if file.content_type == "application/pdf":
+                    content.append(await extractor.extract_text_from_pdf(file))
+                else:
+                    continue # Skip unsupported file types
+
+        if text:
+            content.append(text)
+
+        if youtube_urls:
+            content.extend(await extractor.extract_transcripts_from_youtube(youtube_urls))
+
+        if not content:
+            raise HTTPException(
+                status_code=400, 
+                detail="No content provided. Please upload a PDF file, provide text, or YouTube URLs."
+            )
+        # Flatten content list
+        # chunk and create topics
+        chunks, topics = chunker.chunk_with_topics(content)
+
+        # store chunks and topics in vector database
+        conversation_id = indexer.get_conversation_id()
+        indexer.create_index_with_topics(conversation_id, chunks, topics)
+
+        return {
+            "status": "success",
+            "conversation_id": conversation_id,
+            "message": "Content processed and indexed successfully",
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process upload: {str(e)}"
+        )
+                
+
+@app.post("/chat")
+async def chat(
+    user_input: str = Form(..., description="User query for chat"),
+    conversation_id: str = Form(..., description="Unique conversation identifier"),
+):
+    """
+    Chat with the LLM using user input and optional context.
+    The LLM will respond based on the provided input and context.
+    """
+    
+    try:
+        if not user_input or len(user_input.strip()) < 5:
+            raise HTTPException(
+                status_code=400, 
+                detail="User input is too short. Please provide at least 5 characters."
+            )
+        
+        retriever = Retriever(conversation_id=conversation_id)
+
+        # Retrieve context based on user input
+        context = retriever.semantic_search(user_input)
+
+        print(f"Retrieved context: {context}")
+
+        # Generate response using Gemini
+        response = gemini_client.chat(user_input, context)
+        
+        return {
+            "response": response,
+            "status": "success",
+            "message": "Chat response generated successfully"
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate chat response: {str(e)}"
+        )
+
+
+@app.post("/interact", response_model=QuizResponse)
+async def generate_interactives(
+    topics: Optional[List[str]] = Form(None),
+    conversation_id: str = Form(..., description="Unique conversation identifier")
 ):
     """
     Generate a quiz based on text content or uploaded PDF file.
@@ -55,21 +148,17 @@ async def generate_quiz(
     """
     
     try:
-        # Extract content from text or file
-        if file:
-            if file.content_type == "application/pdf":
-                content = await extract_text_from_pdf(file)
-            else:
-                # Handle text files
-                file_content = await file.read()
-                content = file_content.decode('utf-8')
-        
-        if not content or len(content.strip()) < 10:
+        if not topics or len(topics) == 0:
             raise HTTPException(
                 status_code=400, 
-                detail="Content is too short. Please provide at least 10 characters."
+                detail="No topics provided. Please provide at least one topic."
             )
         
+        retriever = Retriever(conversation_id=conversation_id)
+        
+        # retrieve content based on topics
+        content = retriever.retrieve_content_with_topics(topics)
+
         # Generate quiz using Gemini
         quiz_json = await gemini_client.generate_quiz(content, COMPREHENSIVE_QUIZ_PROMPT)
         
@@ -85,10 +174,6 @@ async def generate_quiz(
             detail=f"Failed to generate quiz: {str(e)}"
         )
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy", "service": "quiz-generator"}
 
 if __name__ == "__main__":
     # Validate config

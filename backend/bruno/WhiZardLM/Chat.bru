@@ -1,0 +1,16 @@
+meta {
+  name: Chat
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:8000/chat
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  conversation_id: dd0f3dbc-fa82-40b3-9893-883647ea23a8
+  user_input: What is ductility
+}

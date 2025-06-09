@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { QuizComponent } from '../components/QuizComponent';
+import { FlashcardComponent } from '../components/flashcard/FlashcardComponent';
+import { TimelineComponent } from '../components/timeline/TimelineComponent';
+import { MindmapComponent } from '../components/mindmap/MindmapComponent';
 import { QuizData, QuizSubtype } from '../types/quiz';
+import { FlashcardData } from '../types/flashcard';
+import { TimelineData } from '../types/timeline';
+import { MindmapData } from '../types/mindmap';
 
 export const WhizardPage = () => {
   const [userContent, setUserContent] = useState('');
@@ -8,6 +14,12 @@ export const WhizardPage = () => {
   const [showOptions, setShowOptions] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState<QuizData | null>(null);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
+  const [activeFlashcards, setActiveFlashcards] = useState<FlashcardData | null>(null);
+  const [isFlashcardsOpen, setIsFlashcardsOpen] = useState(false);
+  const [activeTimeline, setActiveTimeline] = useState<TimelineData | null>(null);
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [activeMindmap, setActiveMindmap] = useState<MindmapData | null>(null);
+  const [isMindmapOpen, setIsMindmapOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleGenerateElements = () => {
@@ -37,7 +49,7 @@ export const WhizardPage = () => {
           formData.append('content', userContent);
         }
         
-        const response = await fetch('http://localhost:8001/generate-quiz', {
+        const response = await fetch('http://localhost:8000/generate-quiz', {
           method: 'POST',
           body: formData,
         });
@@ -63,12 +75,286 @@ export const WhizardPage = () => {
       }
       
       setIsGenerating(false);
+    } else if (option === 'flashcards') {
+      setIsGenerating(true);
+      
+      try {
+        // Call flashcard backend API
+        const formData = new FormData();
+        
+        if (selectedFile) {
+          formData.append('file', selectedFile);
+        } else {
+          formData.append('content', userContent);
+        }
+        
+        const response = await fetch('http://localhost:8000/generate-flashcards', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        // The API returns: { flashcard_data: {...}, status: "success", message: "..." }
+        setActiveFlashcards(result.flashcard_data);
+        setIsFlashcardsOpen(true);
+        
+      } catch (error) {
+        console.error('Failed to generate flashcards:', error);
+        alert('Failed to generate flashcards. Please make sure the backend server is running.');
+        
+        // Fallback to dummy data for testing
+        const dummyFlashcardResponse = generateDummyFlashcardJSON();
+        setActiveFlashcards(dummyFlashcardResponse);
+        setIsFlashcardsOpen(true);
+      }
+      
+      setIsGenerating(false);
+    } else if (option === 'timeline') {
+      setIsGenerating(true);
+      
+      try {
+        // Call timeline backend API
+        const formData = new FormData();
+        
+        if (selectedFile) {
+          formData.append('file', selectedFile);
+        } else {
+          formData.append('content', userContent);
+        }
+        
+        const response = await fetch('http://localhost:8000/generate-timeline', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        // The API returns: { timeline_data: {...}, status: "success", message: "..." }
+        setActiveTimeline(result.timeline_data);
+        setIsTimelineOpen(true);
+        
+      } catch (error) {
+        console.error('Failed to generate timeline:', error);
+        alert('Failed to generate timeline. Please make sure the backend server is running.');
+        
+        // Fallback to dummy data for testing
+        const dummyTimelineResponse = generateDummyTimelineJSON();
+        setActiveTimeline(dummyTimelineResponse);
+        setIsTimelineOpen(true);
+      }
+      
+      setIsGenerating(false);
+    } else if (option === 'mindmap') {
+      setIsGenerating(true);
+      
+      try {
+        // Call mindmap backend API
+        const formData = new FormData();
+        
+        if (selectedFile) {
+          formData.append('file', selectedFile);
+        } else {
+          formData.append('content', userContent);
+        }
+        
+        const response = await fetch('http://localhost:8000/generate-mindmap', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        // The API returns: { mindmap_data: {...}, status: "success", message: "..." }
+        setActiveMindmap(result.mindmap_data);
+        setIsMindmapOpen(true);
+        
+      } catch (error) {
+        console.error('Failed to generate mindmap:', error);
+        alert('Failed to generate mindmap. Please make sure the backend server is running.');
+        
+        // Fallback to dummy data for testing
+        const dummyMindmapResponse = generateDummyMindmapJSON();
+        setActiveMindmap(dummyMindmapResponse);
+        setIsMindmapOpen(true);
+      }
+      
+      setIsGenerating(false);
     } else {
       alert(`${option} is currently in development. Coming soon!`);
     }
   };
 
   const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
+  
+  const generateDummyFlashcardJSON = (): FlashcardData => {
+    return {
+      id: "demo-flashcards-001",
+      title: "Educational Concepts Flashcards",
+      description: "Test your knowledge with these educational flashcards",
+      theme: {
+        primaryColor: "#4CAF50",
+        backgroundColor: "#E8F5E9",
+        textColor: "#2E7D32",
+        fontFamily: "Arial, sans-serif"
+      },
+      cards: [
+        {
+          id: 1,
+          front: "What is the powerhouse of the cell?",
+          back: "Mitochondria",
+          hint: "Think about energy production in cells",
+          difficulty: "easy",
+          tags: ["biology", "cell-structure"]
+        },
+        {
+          id: 2,
+          front: "Chemical formula for water",
+          back: "H₂O",
+          hint: "Two hydrogen atoms and one oxygen",
+          difficulty: "easy",
+          tags: ["chemistry", "formulas"]
+        },
+        {
+          id: 3,
+          front: "What is the largest planet in our solar system?",
+          back: "Jupiter",
+          hint: "Named after the king of Roman gods",
+          difficulty: "medium",
+          tags: ["astronomy", "planets"]
+        },
+        {
+          id: 4,
+          front: "Who wrote 'Romeo and Juliet'?",
+          back: "William Shakespeare",
+          hint: "Famous English playwright from the 16th century",
+          difficulty: "easy",
+          tags: ["literature", "classics"]
+        },
+        {
+          id: 5,
+          front: "What is the square root of 144?",
+          back: "12",
+          hint: "Think about which number multiplied by itself equals 144",
+          difficulty: "medium",
+          tags: ["mathematics", "algebra"]
+        }
+      ],
+      createdAt: "2025-01-14T12:00:00Z",
+      lastModified: "2025-01-14T12:00:00Z"
+    };
+  };
+
+  const generateDummyTimelineJSON = (): TimelineData => {
+    return {
+      id: "demo-timeline-001",
+      title: "World War II Timeline",
+      description: "Major events of World War II",
+      theme: {
+        primaryColor: "#9C27B0",
+        backgroundColor: "#F3E5F5",
+        textColor: "#4A148C",
+        fontFamily: "Arial, sans-serif"
+      },
+      events: [
+        {
+          id: 1,
+          title: "Invasion of Poland",
+          date: "1939-09-01",
+          endDate: "1939-10-06",
+          description: "Germany invades Poland, marking the start of World War II in Europe",
+          category: "military",
+          importance: "high"
+        },
+        {
+          id: 2,
+          title: "Attack on Pearl Harbor",
+          date: "1941-12-07",
+          description: "Japanese surprise attack brings the United States into the war",
+          category: "military",
+          importance: "high"
+        },
+        {
+          id: 3,
+          title: "D-Day Normandy Landings",
+          date: "1944-06-06",
+          description: "Allied forces begin the liberation of Western Europe",
+          category: "military",
+          importance: "high"
+        }
+      ],
+      eras: [
+        {
+          name: "European Theater",
+          startDate: "1939-09-01",
+          startYear: 1939,
+          endDate: "1945-05-08",
+          endYear: 1945
+        }
+      ],
+      createdAt: "2025-01-14T12:00:00Z",
+      lastModified: "2025-01-14T12:00:00Z"
+    };
+  };
+
+  const generateDummyMindmapJSON = (): MindmapData => {
+    return {
+      id: "demo-mindmap-001",
+      title: "Biology Concepts",
+      description: "Mindmap of key biology concepts",
+      theme: {
+        primaryColor: "#2196F3",
+        backgroundColor: "#E3F2FD",
+        textColor: "#0D47A1",
+        fontFamily: "Arial, sans-serif"
+      },
+      nodes: [
+        {
+          id: "root",
+          label: "Biology",
+          type: "root",
+          children: [
+            {
+              id: "cell",
+              label: "Cell Structure",
+              type: "concept",
+              children: [
+                { id: "nucleus", label: "Nucleus", type: "concept" },
+                { id: "mitochondria", label: "Mitochondria", type: "concept" }
+              ]
+            },
+            {
+              id: "genetics",
+              label: "Genetics",
+              type: "concept",
+              children: [
+                { id: "dna", label: "DNA", type: "concept" },
+                { id: "rna", label: "RNA", type: "concept" }
+              ]
+            }
+          ]
+        }
+      ],
+      connections: [
+        { from: "nucleus", to: "dna", label: "contains" },
+        { from: "dna", to: "rna", label: "transcribes to" }
+      ],
+      createdAt: "2025-01-14T12:00:00Z",
+      lastModified: "2025-01-14T12:00:00Z"
+    };
+  };
   
   const generateDummyQuizJSON = (): QuizData => {
     // Demo: cycle through quiz types one by one for easy testing
@@ -263,6 +549,33 @@ export const WhizardPage = () => {
   const handleQuizComplete = (score: number, totalQuestions: number) => {
     // Quiz completion is now handled in-page by the quiz component
     // User will click "Home" button to close
+  };
+
+  const handleFlashcardsClose = () => {
+    setIsFlashcardsOpen(false);
+    setActiveFlashcards(null);
+  };
+
+  const handleFlashcardsComplete = () => {
+    // Flashcards completion - user can continue studying or close
+  };
+
+  const handleTimelineClose = () => {
+    setIsTimelineOpen(false);
+    setActiveTimeline(null);
+  };
+
+  const handleTimelineComplete = () => {
+    // Timeline completion
+  };
+
+  const handleMindmapClose = () => {
+    setIsMindmapOpen(false);
+    setActiveMindmap(null);
+  };
+
+  const handleMindmapComplete = () => {
+    // Mindmap completion
   };
 
   return (
@@ -481,6 +794,36 @@ export const WhizardPage = () => {
           isOpen={isQuizOpen}
           onClose={handleQuizClose}
           onComplete={handleQuizComplete}
+        />
+      )}
+
+      {/* Flashcard Component */}
+      {activeFlashcards && (
+        <FlashcardComponent
+          flashcardData={activeFlashcards}
+          isOpen={isFlashcardsOpen}
+          onClose={handleFlashcardsClose}
+          onComplete={handleFlashcardsComplete}
+        />
+      )}
+
+      {/* Timeline Component */}
+      {activeTimeline && (
+        <TimelineComponent
+          timelineData={activeTimeline}
+          isOpen={isTimelineOpen}
+          onClose={handleTimelineClose}
+          onComplete={handleTimelineComplete}
+        />
+      )}
+
+      {/* Mindmap Component */}
+      {activeMindmap && (
+        <MindmapComponent
+          mindmapData={activeMindmap}
+          isOpen={isMindmapOpen}
+          onClose={handleMindmapClose}
+          onComplete={handleMindmapComplete}
         />
       )}
 

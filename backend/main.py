@@ -11,6 +11,9 @@ from dotenv import load_dotenv
 
 from coding_agent.gemini_client import GeminiClient
 from coding_agent.quiz_prompts import COMPREHENSIVE_QUIZ_PROMPT
+from coding_agent.flashcard_prompts import COMPREHENSIVE_FLASHCARD_PROMPT
+from coding_agent.timeline_prompts import COMPREHENSIVE_TIMELINE_PROMPT
+from coding_agent.mindmap_prompts import COMPREHENSIVE_MINDMAP_PROMPT
 from pdf_extractor import extract_text_from_pdf
 from config import Config
 
@@ -37,6 +40,21 @@ class QuizRequest(BaseModel):
 
 class QuizResponse(BaseModel):
     quiz_data: dict
+    status: str
+    message: str
+
+class FlashcardResponse(BaseModel):
+    flashcard_data: dict
+    status: str
+    message: str
+
+class TimelineResponse(BaseModel):
+    timeline_data: dict
+    status: str
+    message: str
+
+class MindmapResponse(BaseModel):
+    mindmap_data: dict
     status: str
     message: str
 
@@ -83,6 +101,129 @@ async def generate_quiz(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate quiz: {str(e)}"
+        )
+
+@app.post("/generate-flashcards", response_model=FlashcardResponse)
+async def generate_flashcards(
+    content: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None)
+):
+    """
+    Generate flashcards based on text content or uploaded PDF file.
+    The LLM will analyze the content and create educational flashcards.
+    """
+    
+    try:
+        # Extract content from text or file
+        if file:
+            if file.content_type == "application/pdf":
+                content = await extract_text_from_pdf(file)
+            else:
+                # Handle text files
+                file_content = await file.read()
+                content = file_content.decode('utf-8')
+        
+        if not content or len(content.strip()) < 10:
+            raise HTTPException(
+                status_code=400, 
+                detail="Content is too short. Please provide at least 10 characters."
+            )
+        
+        # Generate flashcards using Gemini
+        flashcard_json = await gemini_client.generate_flashcards(content, COMPREHENSIVE_FLASHCARD_PROMPT)
+        
+        return FlashcardResponse(
+            flashcard_data=flashcard_json,
+            status="success",
+            message="Flashcards generated successfully"
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate flashcards: {str(e)}"
+        )
+
+@app.post("/generate-timeline", response_model=TimelineResponse)
+async def generate_timeline(
+    content: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None)
+):
+    """
+    Generate a timeline based on text content or uploaded PDF file.
+    The LLM will analyze the content and create a chronological timeline.
+    """
+    
+    try:
+        # Extract content from text or file
+        if file:
+            if file.content_type == "application/pdf":
+                content = await extract_text_from_pdf(file)
+            else:
+                # Handle text files
+                file_content = await file.read()
+                content = file_content.decode('utf-8')
+        
+        if not content or len(content.strip()) < 10:
+            raise HTTPException(
+                status_code=400, 
+                detail="Content is too short. Please provide at least 10 characters."
+            )
+        
+        # Generate timeline using Gemini
+        timeline_json = await gemini_client.generate_timeline(content, COMPREHENSIVE_TIMELINE_PROMPT)
+        
+        return TimelineResponse(
+            timeline_data=timeline_json,
+            status="success",
+            message="Timeline generated successfully"
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate timeline: {str(e)}"
+        )
+
+@app.post("/generate-mindmap", response_model=MindmapResponse)
+async def generate_mindmap(
+    content: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None)
+):
+    """
+    Generate a mindmap based on text content or uploaded PDF file.
+    The LLM will analyze the content and create a knowledge structure.
+    """
+    
+    try:
+        # Extract content from text or file
+        if file:
+            if file.content_type == "application/pdf":
+                content = await extract_text_from_pdf(file)
+            else:
+                # Handle text files
+                file_content = await file.read()
+                content = file_content.decode('utf-8')
+        
+        if not content or len(content.strip()) < 10:
+            raise HTTPException(
+                status_code=400, 
+                detail="Content is too short. Please provide at least 10 characters."
+            )
+        
+        # Generate mindmap using Gemini
+        mindmap_json = await gemini_client.generate_mindmap(content, COMPREHENSIVE_MINDMAP_PROMPT)
+        
+        return MindmapResponse(
+            mindmap_data=mindmap_json,
+            status="success",
+            message="Mindmap generated successfully"
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate mindmap: {str(e)}"
         )
 
 @app.get("/health")

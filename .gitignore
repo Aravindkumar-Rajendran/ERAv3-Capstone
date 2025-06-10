@@ -29,4 +29,4 @@ backend/coding_agent/.env
 .venv/
 __pycache__/
 **/__pycache__
-backend\coding_agent\__pycache__\*.pyc
+backend/chroma_db/*

@@ -22,10 +22,19 @@ PORT=8000
 ### 3. Run the Server
 
 ```bash
+# Recommended: Run with uvicorn for auto-reload during development
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Or, run directly:
+
+```bash
 python main.py
 ```
 
 The API will be available at `http://localhost:8000`
+
+
 
 ## 📡 API Endpoints
 
@@ -141,4 +150,5 @@ files = {"file": open("document.pdf", "rb")}
 response = requests.post(
     "http://localhost:8000/generate-quiz", 
     files=files
-) 
+)
+```

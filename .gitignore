@@ -30,3 +30,5 @@ backend/coding_agent/.env
 __pycache__/
 **/__pycache__
 backend/chroma_db/*
+backend/chroma_db/chroma.sqlite3
+backend/sqlite_db/whizardlm.db

@@ -67,15 +67,14 @@ class Retriever:
         """
         Retrieve all chunks for the given topics for this conversation.
         """
+        # Fetch all documents for the conversation in one call
+        results = self.collection.get(where={"conversation_id": self.conversation_id})
         all_chunks = []
-        for topic in topics:
-            results = self.collection.get(
-                where={
-                    "conversation_id": self.conversation_id,
-                    "topic": topic
-                }
-            )
-            all_chunks.extend(results.get("documents", []))
+        metadatas = results.get("metadatas", [])
+        documents = results.get("documents", [])
+        for metadata, doc in zip(metadatas, documents):
+            if metadata.get("topic") in topics:
+                all_chunks.append(doc)
         return all_chunks
 
 

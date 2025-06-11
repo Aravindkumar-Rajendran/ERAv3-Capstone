@@ -67,8 +67,9 @@ class Extractor:
             
             if not extracted_text:
                 raise ValueError("No text could be extracted from the PDF")
-                return ""
             
+            print(f"Extracted {len(extracted_text)} characters from PDF")
+
             return self.clean_extracted_text(extracted_text)
             
         except Exception as e:
@@ -103,7 +104,7 @@ class Chunker:
     def __init__(self, chunk_size: int = 500):
         self.chunk_size = chunk_size
 
-    def chunk_with_topics(self, contents):
+    async def chunk_with_topics(self, contents):
         """
         Splits each content string into chunks and assigns a dummy topic for each chunk.
         Returns a tuple: (chunks, topics)
@@ -111,7 +112,7 @@ class Chunker:
         chunks = []
         topics = []
         for content in contents:
-            response = client.generate_chunk_and_topics(content, chunking_and_topics_gen_prompt)
+            response = await client.generate_chunk_and_topics(content, chunking_and_topics_gen_prompt)
             for item in response:
                 topic = item.get("topic")
                 content = item.get("content", "")

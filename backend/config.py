@@ -5,6 +5,11 @@ load_dotenv()
 
 class Config:
     """Application configuration"""
+    # Database Configuration
+    # Ensure the sqlite_db directory exists
+    if not os.path.exists("sqlite_db"):
+        os.makedirs("sqlite_db")
+        
     DATABASE_FILE = os.path.join("sqlite_db", "whizardlm.db")
 
     # API Configuration

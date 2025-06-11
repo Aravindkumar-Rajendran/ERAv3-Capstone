@@ -71,7 +71,8 @@ async def upload(
             content.append(text)
 
         if youtube_urls:
-            content.extend(await extractor.extract_transcripts_from_youtube(youtube_urls))
+            transcripts = await extractor.extract_transcripts_from_youtube(youtube_urls)
+            content.extend(transcripts)
 
         if not content:
             raise HTTPException(
@@ -80,7 +81,7 @@ async def upload(
             )
         # Flatten content list
         # chunk and create topics
-        chunks, topics = chunker.chunk_with_topics(content)
+        chunks, topics = await chunker.chunk_with_topics(content)
 
         # store chunks and topics in vector database
         conversation_id = indexer.get_conversation_id()
@@ -152,9 +153,9 @@ async def chat(
         )
 
 
-@app.post("/topics")
+@app.get("/topics/{conversation_id}")
 async def get_topics(
-    conversation_id: str = Form(..., description="Unique conversation identifier")
+    conversation_id: str,
 ):
     """
     Retrieve topics from the database based on conversation ID.
@@ -168,7 +169,7 @@ async def get_topics(
                 detail="Conversation ID is required."
             )
         
-        topics = database_client.get_topics(conversation_id)
+        topics = database_client.read_topics(conversation_id)
         
         if not topics:
             raise HTTPException(
@@ -191,7 +192,7 @@ async def get_topics(
 
 @app.post("/interact", response_model=QuizResponse)
 async def generate_interactives(
-    topics: Optional[List[str]] = Form(None),
+    topics: List[str] = Form(None),
     conversation_id: str = Form(..., description="Unique conversation identifier")
 ):
     """
@@ -208,6 +209,8 @@ async def generate_interactives(
         
         retriever = Retriever(conversation_id=conversation_id)
         
+        print(f"Retrieving content for topics: {topics}")
+
         # retrieve content based on topics
         content = retriever.retrieve_content_with_topics(topics)
 

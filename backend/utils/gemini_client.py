@@ -47,6 +47,80 @@ class GeminiClient:
             return response.text.strip()
         except Exception as e:
             raise Exception(f"Failed to generate response: {str(e)}")
+        
+    def generate(self, prompt: str) -> str:
+        """
+        Generate content using Gemini 2.0 Flash model
+        
+        Args:
+            prompt: The prompt to generate content from
+            
+        Returns:
+            str: Generated content text
+        """
+        try:
+            response = self.model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.7,
+                    top_k=40,
+                    top_p=0.95,
+                    max_output_tokens=4000,
+                )
+            )
+            return response.text.strip()
+        except Exception as e:
+            raise Exception(f"Failed to generate content: {str(e)}")
+        
+    async def generate_chunk_and_topics(self, content: str, prompt_template: str) -> str:
+        """
+        Generate chunks and topics using Gemini 2.0 Flash
+        
+        Args:
+            content: User provided content (text from input or PDF)
+            prompt_template: Comprehensive prompt with instructions and examples
+            
+        Returns:
+            str: JSON string with topics and cleaned content
+        """
+        
+        try:
+            # Combine prompt template with user content
+            full_prompt = f"{prompt_template}\n{content}"
+            
+            # Generate response using Gemini
+            response = self.model.generate_content(
+                full_prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.7,
+                    top_k=40,
+                    top_p=0.95,
+                    max_output_tokens=4000,
+                )
+            )
+            # Extract JSON from response
+            response_text = response.text.strip()
+            # Clean response text - remove any markdown code blocks
+            if "```json" in response_text:
+                start = response_text.find("```json") + 7
+                end = response_text.find("```", start)
+                response_text = response_text[start:end].strip()
+            elif "```" in response_text:
+                start = response_text.find("```") + 3
+                end = response_text.find("```", start)
+                response_text = response_text[start:end].strip()
+            
+            # Validate JSON format
+            try:
+                response = json.loads(response_text)
+                return response
+            
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON response from Gemini: {str(e)}")
+            
+        except Exception as e:
+            raise Exception(f"Failed to generate chunks and topics: {str(e)}")
+
     
     async def generate_quiz(self, content: str, prompt_template: str) -> Dict[Any, Any]:
         """

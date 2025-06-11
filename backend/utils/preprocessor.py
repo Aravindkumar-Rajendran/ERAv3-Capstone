@@ -3,6 +3,11 @@ from fastapi import UploadFile
 import PyPDF2
 from youtube_transcript_api import YouTubeTranscriptApi
 
+from prompts.chunk_n_topics import chunking_and_topics_gen_prompt
+from utils.gemini_client import GeminiClient
+
+client = GeminiClient()
+
 
 ytt_api = YouTubeTranscriptApi()
 
@@ -106,9 +111,13 @@ class Chunker:
         chunks = []
         topics = []
         for content in contents:
-            for i in range(0, len(content), self.chunk_size):
-                chunk = content[i:i+self.chunk_size]
-                chunks.append(chunk)
-                # Dummy topic assignment: can be replaced with real topic extraction
-                topics.append(f"Topic {len(topics)+1}")
+            response = client.generate_chunk_and_topics(content, chunking_and_topics_gen_prompt)
+            for item in response:
+                topic = item.get("topic")
+                content = item.get("content", "")
+                content = content.strip()
+                if content:
+                    chunks.append(content)
+                    topics.append(topic)
+
         return chunks, topics

@@ -8,6 +8,7 @@ from utils.gemini_client import GeminiClient
 from prompts.quiz import COMPREHENSIVE_QUIZ_PROMPT
 from utils.preprocessor import Chunker, Extractor
 from utils.vector_store import Indexer, Retriever
+from utils.database import DatabaseClient
 from config import Config
 
 from dotenv import load_dotenv
@@ -31,6 +32,7 @@ gemini_client = GeminiClient()
 extractor = Extractor()
 chunker = Chunker()
 indexer = Indexer()
+database_client = DatabaseClient(Config.DATABASE_FILE)
 
 
 @app.get("/")
@@ -83,6 +85,8 @@ async def upload(
         # store chunks and topics in vector database
         conversation_id = indexer.get_conversation_id()
         indexer.create_index_with_topics(conversation_id, chunks, topics)
+        # save topics with conversation ID in sqlite
+        database_client.write_topics(conversation_id, topics)
 
         return {
             "status": "success",
@@ -121,8 +125,19 @@ async def chat(
 
         print(f"Retrieved context: {context}")
 
+
+
         # Generate response using Gemini
         response = gemini_client.chat(user_input, context)
+
+        # Save conversation to database
+        conversation_dict = {
+            "conversation_id": conversation_id,
+            "user_input": user_input,
+            "response": response
+        }
+
+        database_client.write_conversation(conversation_id, conversation_dict)
         
         return {
             "response": response,
@@ -134,6 +149,43 @@ async def chat(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate chat response: {str(e)}"
+        )
+
+
+@app.post("/topics")
+async def get_topics(
+    conversation_id: str = Form(..., description="Unique conversation identifier")
+):
+    """
+    Retrieve topics from the database based on conversation ID.
+    This will return a list of topics associated with the conversation.
+    """
+    
+    try:
+        if not conversation_id:
+            raise HTTPException(
+                status_code=400, 
+                detail="Conversation ID is required."
+            )
+        
+        topics = database_client.get_topics(conversation_id)
+        
+        if not topics:
+            raise HTTPException(
+                status_code=404, 
+                detail="No topics found for the provided conversation ID."
+            )
+        
+        return {
+            "topics": topics,
+            "status": "success",
+            "message": "Topics retrieved successfully"
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve topics: {str(e)}"
         )
 
 

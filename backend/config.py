@@ -5,7 +5,8 @@ load_dotenv()
 
 class Config:
     """Application configuration"""
-    
+    DATABASE_FILE = os.path.join("sqlite_db", "whizardlm.db")
+
     # API Configuration
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     PORT = int(os.getenv("PORT", 8001))

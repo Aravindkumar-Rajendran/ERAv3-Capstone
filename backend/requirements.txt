@@ -7,4 +7,4 @@ python-multipart>=0.0.12
 PyPDF2>=3.0.1
 aiofiles>=24.1.0
 chromadb>=0.4.24
-youtube_transcript_api>=1.0.3
+youtube-transcript-api==1.1.0

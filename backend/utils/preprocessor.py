@@ -90,10 +90,16 @@ class Extractor:
         for url in youtube_urls:
             if "youtube.com/watch?v=" in url or "youtu.be/" in url:
                 video_id = url.split("v=")[-1].split("&")[0] if "v=" in url else url.split("/")[-1]
+                print("Video ID:", video_id)
                 # Fetch YouTube transcript
-                transcript = ytt_api.fetch(video_id)
-                content = " ".join([item['text'] for item in transcript.snippets])
-                chunks.append(content)
+                try:
+                    transcript = ytt_api.fetch(video_id).to_raw_data()
+                    print(f"Fetched transcript for {video_id} with {len(transcript)} snippets")
+                except Exception as e:
+                    print(f"Failed to fetch transcript for {video_id}: {str(e)}")
+                    continue
+                content = " ".join([item["text"] for item in transcript])
+                chunks.append(content)  
 
         return chunks
 

@@ -15,3 +15,8 @@ export { MCQQuiz } from './quiz/MCQQuiz';
 export { TrueFalseQuiz } from './quiz/TrueFalseQuiz';
 export { FillBlanksQuiz } from './quiz/FillBlanksQuiz';
 export { MatchFollowingQuiz } from './quiz/MatchFollowingQuiz';
+
+// Interactive Components
+export { TimelineComponent } from './timeline/TimelineComponent';
+export { MindmapComponent } from './mindmap/MindmapComponent';
+export { FlashcardComponent } from './flashcard/FlashcardComponent';

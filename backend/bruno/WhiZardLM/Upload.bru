@@ -1,0 +1,16 @@
+meta {
+  name: Upload
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:8000/upload
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  youtube_urls: https://youtu.be/XwDxFluPkuk
+  youtube_urls: https://www.youtube.com/watch?v=rFZrL1RiuVI
+}

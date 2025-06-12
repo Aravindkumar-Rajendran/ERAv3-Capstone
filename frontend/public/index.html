@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your App Title</title>
+    <title>WhizardLM - AI Study Companion</title>
+    <script>
+        // Fix for "process is not defined" error in browser
+        window.global = window.global || window;
+        window.process = window.process || { env: {}, browser: true };
+    </script>
 </head>
 <body>
     <div id="root"></div>

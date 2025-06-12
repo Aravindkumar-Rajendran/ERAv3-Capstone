@@ -24,9 +24,12 @@ yarn-debug.log*
 yarn-error.log*
 frontend/node_modules/
 backend/coding_agent/.env
+backend/.env
 
 # backend
 .venv/
 __pycache__/
 **/__pycache__
-backend\coding_agent\__pycache__\*.pyc
+backend/chroma_db/*
+backend/chroma_db/chroma.sqlite3
+backend/sqlite_db/whizardlm.db

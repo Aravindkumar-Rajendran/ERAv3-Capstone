@@ -1,6 +1,6 @@
-# WhizardLM Quiz Generator Backend
+# WhizardLM  Backend
 
-FastAPI backend service that generates interactive quizzes using Gemini 2.0 Flash AI.
+FastAPI backend service 
 
 ## 🚀 Quick Start
 
@@ -22,12 +22,25 @@ PORT=8000
 ### 3. Run the Server
 
 ```bash
+# Recommended: Run with uvicorn for auto-reload during development
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Or, run directly:
+
+```bash
 python main.py
 ```
 
 The API will be available at `http://localhost:8000`
 
+
+
 ## 📡 API Endpoints
+
+### Bruno
+
+Check bruno folder for collection to use to test the API using Bruno API Client.
 
 ### Generate Quiz
 ```http
@@ -137,4 +150,5 @@ files = {"file": open("document.pdf", "rb")}
 response = requests.post(
     "http://localhost:8000/generate-quiz", 
     files=files
-) 
+)
+```

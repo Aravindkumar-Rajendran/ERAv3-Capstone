@@ -1,68 +1,286 @@
 import React, { useState } from 'react';
 import { QuizComponent } from '../components/QuizComponent';
+import { TimelineComponent } from '../components/timeline/TimelineComponent';
+import { MindmapComponent } from '../components/mindmap/MindmapComponent';
+import { FlashcardComponent } from '../components/flashcard/FlashcardComponent';
 import { QuizData, QuizSubtype } from '../types/quiz';
+import { TimelineData } from '../types/timeline';
+import { MindmapData } from '../types/mindmap';
+import { FlashcardData } from '../types/flashcard';
 
 export const WhizardPage = () => {
   const [userContent, setUserContent] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [youtubeUrl, setYoutubeUrl] = useState('');
   const [showOptions, setShowOptions] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState<QuizData | null>(null);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
+  const [activeTimeline, setActiveTimeline] = useState<TimelineData | null>(null);
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [activeMindmap, setActiveMindmap] = useState<MindmapData | null>(null);
+  const [isMindmapOpen, setIsMindmapOpen] = useState(false);
+  const [activeFlashcard, setActiveFlashcard] = useState<FlashcardData | null>(null);
+  const [isFlashcardOpen, setIsFlashcardOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [topics, setTopics] = useState<string[]>([]);
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+  const [showTopics, setShowTopics] = useState(false);
 
-  const handleGenerateElements = () => {
-    if (!userContent.trim() && !selectedFile) {
-      alert('Please enter some content or upload a file first!');
+  const handleGenerateElements = async () => {
+    if (!userContent.trim() && !selectedFile && !youtubeUrl.trim()) {
+      alert('Please enter some content, upload a file, or provide a YouTube URL first!');
       return;
     }
     setIsGenerating(true);
-    // Simulate processing time
-    setTimeout(() => {
+    
+    try {
+      // Step 1: Upload content to backend
+      const formData = new FormData();
+      
+      if (selectedFile) {
+        formData.append('files', selectedFile);
+      }
+      if (userContent.trim()) {
+        formData.append('text', userContent);
+      }
+      if (youtubeUrl.trim()) {
+        formData.append('youtube_urls', youtubeUrl);
+      }
+      
+      const uploadResponse = await fetch('http://localhost:8000/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed: ${uploadResponse.status}`);
+      }
+      
+      const uploadResult = await uploadResponse.json();
+      const convId = uploadResult.conversation_id;
+      setConversationId(convId);
+      
+      // Step 2: Get topics
+      const topicsFormData = new FormData();
+      topicsFormData.append('conversation_id', convId);
+      
+      const topicsResponse = await fetch('http://localhost:8000/topics/' + convId, {
+        method: 'GET',
+      });
+      
+      if (!topicsResponse.ok) {
+        throw new Error(`Topics failed: ${topicsResponse.status}`);
+      }
+      
+      const topicsResult = await topicsResponse.json();
+      setTopics(topicsResult.topics);
+      setShowTopics(true);
+      setIsGenerating(false);
+      
+    } catch (error) {
+      console.error('Failed to process content:', error);
+      alert('Failed to process content. Using demo mode.');
       setIsGenerating(false);
       setShowOptions(true);
-    }, 1500);
+    }
+  };
+
+  const handleTopicSelection = (topic: string) => {
+    setSelectedTopics(prev => 
+      prev.includes(topic) 
+        ? prev.filter(t => t !== topic)
+        : [...prev, topic]
+    );
+  };
+
+  const handleGenerateQuiz = async () => {
+    if (selectedTopics.length === 0) {
+      alert('Please select at least one topic!');
+      return;
+    }
+    
+    if (!conversationId) {
+      alert('No conversation ID found. Please upload content first.');
+      return;
+    }
+    
+    setIsGenerating(true);
+    
+    try {
+      // Step 3: Generate quiz with selected topics
+      const formData = new FormData();
+      formData.append('conversation_id', conversationId);
+      selectedTopics.forEach(topic => {
+        formData.append('topics', topic);
+      });
+      
+      const response = await fetch('http://localhost:8000/interact', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
+      // The API returns: { quiz_data: {...}, status: "success", message: "..." }
+      setActiveQuiz(result.quiz_data);
+      setIsQuizOpen(true);
+      
+    } catch (error) {
+      console.error('Failed to generate quiz:', error);
+      alert('Failed to generate quiz. Using demo mode.');
+      
+      // Fallback to dummy data for testing
+      const dummyQuizResponse = generateDummyQuizJSON();
+      setActiveQuiz(dummyQuizResponse);
+      setIsQuizOpen(true);
+    }
+    
+    setIsGenerating(false);
+  };
+
+  const handleGenerateTimeline = async () => {
+    if (selectedTopics.length === 0) {
+      alert('Please select at least one topic!');
+      return;
+    }
+    
+    if (!conversationId) {
+      alert('No conversation ID found. Please upload content first.');
+      return;
+    }
+    
+    setIsGenerating(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('conversation_id', conversationId);
+      selectedTopics.forEach(topic => {
+        formData.append('topics', topic);
+      });
+      
+      const response = await fetch('http://localhost:8000/interact-timeline', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      if (result.status === "rejected") {
+        // Timeline was rejected - still show component with rejection message
+        setActiveTimeline(result.timeline_data);
+        setIsTimelineOpen(true);
+      } else {
+        setActiveTimeline(result.timeline_data);
+        setIsTimelineOpen(true);
+      }
+      
+    } catch (error) {
+      console.error('Failed to generate timeline:', error);
+      alert('Failed to generate timeline. Please try again.');
+    }
+    
+    setIsGenerating(false);
+  };
+
+  const handleGenerateMindmap = async () => {
+    if (selectedTopics.length === 0) {
+      alert('Please select at least one topic!');
+      return;
+    }
+    
+    if (!conversationId) {
+      alert('No conversation ID found. Please upload content first.');
+      return;
+    }
+    
+    setIsGenerating(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('conversation_id', conversationId);
+      selectedTopics.forEach(topic => {
+        formData.append('topics', topic);
+      });
+      
+      const response = await fetch('http://localhost:8000/interact-mindmap', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      setActiveMindmap(result.mindmap_data);
+      setIsMindmapOpen(true);
+      
+    } catch (error) {
+      console.error('Failed to generate mindmap:', error);
+      alert('Failed to generate mindmap. Please try again.');
+    }
+    
+    setIsGenerating(false);
+  };
+
+  const handleGenerateFlashcard = async () => {
+    if (selectedTopics.length === 0) {
+      alert('Please select at least one topic!');
+      return;
+    }
+    
+    if (!conversationId) {
+      alert('No conversation ID found. Please upload content first.');
+      return;
+    }
+    
+    setIsGenerating(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('conversation_id', conversationId);
+      selectedTopics.forEach(topic => {
+        formData.append('topics', topic);
+      });
+      
+      const response = await fetch('http://localhost:8000/interact-flashcard', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      setActiveFlashcard(result.flashcard_data);
+      setIsFlashcardOpen(true);
+      
+    } catch (error) {
+      console.error('Failed to generate flashcard:', error);
+      alert('Failed to generate flashcard. Please try again.');
+    }
+    
+    setIsGenerating(false);
   };
 
   const handleOptionClick = async (option: string) => {
     if (option === 'quiz') {
-      setIsGenerating(true);
-      
-      try {
-        // Call your backend API
-        const formData = new FormData();
-        
-        if (selectedFile) {
-          formData.append('file', selectedFile);
-        } else {
-          formData.append('content', userContent);
-        }
-        
-        const response = await fetch('http://localhost:8001/generate-quiz', {
-          method: 'POST',
-          body: formData,
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        // The API returns: { quiz_data: {...}, status: "success", message: "..." }
-        setActiveQuiz(result.quiz_data);
-        setIsQuizOpen(true);
-        
-      } catch (error) {
-        console.error('Failed to generate quiz:', error);
-        alert('Failed to generate quiz. Please make sure the backend server is running.');
-        
-        // Fallback to dummy data for testing
-        const dummyQuizResponse = generateDummyQuizJSON();
-        setActiveQuiz(dummyQuizResponse);
-        setIsQuizOpen(true);
-      }
-      
-      setIsGenerating(false);
+      await handleGenerateQuiz();
+    } else if (option === 'timeline') {
+      await handleGenerateTimeline();
+    } else if (option === 'mindmap') {
+      await handleGenerateMindmap();
+    } else if (option === 'flashcards') {
+      await handleGenerateFlashcard();
     } else {
       alert(`${option} is currently in development. Coming soon!`);
     }
@@ -265,27 +483,75 @@ export const WhizardPage = () => {
     // User will click "Home" button to close
   };
 
+  const handleTimelineClose = () => {
+    setIsTimelineOpen(false);
+    setActiveTimeline(null);
+  };
+
+  const handleTimelineComplete = () => {
+    // Timeline completion logic (optional)
+  };
+
+  const handleMindmapClose = () => {
+    setIsMindmapOpen(false);
+    setActiveMindmap(null);
+  };
+
+  const handleMindmapComplete = () => {
+    // Mindmap completion logic (optional)
+  };
+
+  const handleFlashcardClose = () => {
+    setIsFlashcardOpen(false);
+    setActiveFlashcard(null);
+  };
+
+  const handleFlashcardComplete = () => {
+    // Flashcard completion logic (optional)
+  };
+
+  const handleReset = () => {
+    // Reset all state to initial values
+    setUserContent('');
+    setSelectedFile(null);
+    setYoutubeUrl('');
+    setShowOptions(false);
+    setActiveQuiz(null);
+    setIsQuizOpen(false);
+    setActiveTimeline(null);
+    setIsTimelineOpen(false);
+    setActiveMindmap(null);
+    setIsMindmapOpen(false);
+    setActiveFlashcard(null);
+    setIsFlashcardOpen(false);
+    setIsGenerating(false);
+    setConversationId(null);
+    setTopics([]);
+    setSelectedTopics([]);
+    setShowTopics(false);
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-      color: '#e0dede',
+      background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #2d2d2d 100%)',
+      color: '#ffffff',
       fontFamily: 'Arial, sans-serif'
     }}>
       {/* Header */}
       <div style={{
-        background: 'rgba(0,0,0,0.3)',
+        background: 'rgba(0,0,0,0.5)',
         padding: '20px',
-        borderBottom: '2px solid #16213e'
+        borderBottom: '2px solid #4caf50'
       }}>
         <h1 style={{
           margin: 0,
           textAlign: 'center',
           fontSize: '2.5rem',
-          background: 'linear-gradient(45deg, #64b5f6, #42a5f5, #2196f3)',
+          background: 'linear-gradient(45deg, #4caf50, #66bb6a, #81c784)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
-          textShadow: '0 0 20px rgba(33, 150, 243, 0.3)'
+          textShadow: '0 0 20px rgba(76, 175, 80, 0.3)'
         }}>
           🧙‍♂️ WhizardLM
         </h1>
@@ -317,16 +583,19 @@ export const WhizardPage = () => {
           padding: '30px',
           border: '1px solid rgba(255,255,255,0.1)'
         }}>
-          <h2 style={{ margin: '0 0 20px 0', color: '#64b5f6' }}>📝 Enter Your Learning Content</h2>
+          <h2 style={{ margin: '0 0 20px 0', color: '#4caf50' }}>📝 Enter Your Learning Content</h2>
           
           {/* Text Input */}
           <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '10px', color: '#64b5f6' }}>Option 1: Paste Text Content</label>
+            <label style={{ display: 'block', marginBottom: '10px', color: '#4caf50' }}>Option 1: Paste Text Content</label>
             <textarea
               value={userContent}
               onChange={(e) => {
                 setUserContent(e.target.value);
-                if (e.target.value.trim()) setSelectedFile(null); // Clear file if text is entered
+                if (e.target.value.trim()) {
+                  setSelectedFile(null); // Clear file if text is entered
+                  setYoutubeUrl(''); // Clear URL if text is entered
+                }
               }}
               placeholder="Paste your text content here... (articles, documents, notes, etc.)"
               style={{
@@ -351,7 +620,7 @@ export const WhizardPage = () => {
 
           {/* File Upload */}
           <div>
-            <label style={{ display: 'block', marginBottom: '10px', color: '#64b5f6' }}>Option 2: Upload File (PDF, TXT)</label>
+            <label style={{ display: 'block', marginBottom: '10px', color: '#4caf50' }}>Option 2: Upload File (PDF, TXT)</label>
             <div style={{
               border: '2px dashed #16213e',
               borderRadius: '10px',
@@ -368,6 +637,7 @@ export const WhizardPage = () => {
               if (files.length > 0) {
                 setSelectedFile(files[0]);
                 setUserContent(''); // Clear text if file is uploaded
+                setYoutubeUrl(''); // Clear URL if file is uploaded
               }
             }}>
               <input
@@ -378,11 +648,12 @@ export const WhizardPage = () => {
                   if (e.target.files && e.target.files[0]) {
                     setSelectedFile(e.target.files[0]);
                     setUserContent(''); // Clear text if file is uploaded
+                    setYoutubeUrl(''); // Clear URL if file is uploaded
                   }
                 }}
                 style={{ display: 'none' }}
               />
-              <label htmlFor="file-upload" style={{ cursor: 'pointer', color: '#64b5f6' }}>
+              <label htmlFor="file-upload" style={{ cursor: 'pointer', color: '#4caf50' }}>
                 <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📄</div>
                 {selectedFile ? (
                   <div>
@@ -398,30 +669,158 @@ export const WhizardPage = () => {
               </label>
             </div>
           </div>
+
+          {/* OR Separator */}
+          <div style={{ textAlign: 'center', margin: '20px 0', color: '#888' }}>
+            <span style={{ background: 'rgba(255,255,255,0.05)', padding: '5px 15px', borderRadius: '15px' }}>OR</span>
+          </div>
+
+          {/* YouTube URL Input */}
+          <div>
+            <label style={{ display: 'block', marginBottom: '10px', color: '#4caf50' }}>Option 3: YouTube Video URL</label>
+            <input
+              type="url"
+              value={youtubeUrl}
+              onChange={(e) => {
+                setYoutubeUrl(e.target.value);
+                if (e.target.value.trim()) {
+                  setUserContent(''); // Clear text if URL is entered
+                  setSelectedFile(null); // Clear file if URL is entered
+                }
+              }}
+              placeholder="Paste YouTube video URL here... (e.g., https://www.youtube.com/watch?v=...)"
+              style={{
+                width: '100%',
+                background: 'rgba(0,0,0,0.3)',
+                border: '2px solid #16213e',
+                borderRadius: '10px',
+                padding: '15px',
+                color: '#e0dede',
+                fontSize: '16px',
+                fontFamily: 'Arial, sans-serif'
+              }}
+            />
+            {youtubeUrl && (
+              <div style={{ marginTop: '10px', color: '#4caf50', fontSize: '14px' }}>
+                ✅ YouTube URL ready for processing
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Generate Button */}
-        <button
-          onClick={handleGenerateElements}
-          disabled={isGenerating}
-          style={{
-            background: isGenerating 
-              ? 'linear-gradient(45deg, #666, #888)' 
-              : 'linear-gradient(45deg, #2196f3, #21cbf3)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '25px',
-            padding: '15px 40px',
-            fontSize: '18px',
-            fontWeight: 'bold',
-            cursor: isGenerating ? 'not-allowed' : 'pointer',
-            transition: 'all 0.3s ease',
-            boxShadow: '0 4px 20px rgba(33, 150, 243, 0.3)',
-            marginBottom: '40px'
-          }}
-        >
-          {isGenerating ? '🔄 Generating...' : '✨ Generate Interactive Elements'}
-        </button>
+        {/* Generate and Reset Buttons */}
+        <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginBottom: '40px' }}>
+          <button
+            onClick={handleGenerateElements}
+            disabled={isGenerating}
+            style={{
+              background: isGenerating 
+                ? 'linear-gradient(45deg, #666, #888)' 
+                : 'linear-gradient(45deg, #4caf50, #66bb6a)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '25px',
+              padding: '15px 40px',
+              fontSize: '18px',
+              fontWeight: 'bold',
+              cursor: isGenerating ? 'not-allowed' : 'pointer',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 4px 20px rgba(76, 175, 80, 0.3)'
+            }}
+          >
+            {isGenerating ? '🔄 Processing Content...' : '✨ Topics'}
+          </button>
+
+          {(showTopics || showOptions) && (
+            <button
+              onClick={handleReset}
+              style={{
+                background: 'linear-gradient(45deg, #ff5722, #ff7043)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '25px',
+                padding: '15px 30px',
+                fontSize: '18px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                boxShadow: '0 4px 20px rgba(255, 87, 34, 0.3)'
+              }}
+            >
+              🔄 Reset
+            </button>
+          )}
+        </div>
+
+        {/* Topic Selection */}
+        {showTopics && (
+          <div style={{
+            width: '100%',
+            marginBottom: '30px',
+            background: 'rgba(255,255,255,0.05)',
+            borderRadius: '15px',
+            padding: '30px',
+            border: '1px solid rgba(255,255,255,0.1)',
+            animation: 'fadeIn 0.5s ease-in'
+          }}>
+            <h3 style={{ margin: '0 0 20px 0', color: '#4caf50' }}>🎯 Select Topics for Interactive Generation</h3>
+            <p style={{ color: '#888', marginBottom: '20px' }}>
+              Choose one or more topics from your content to generate a focused quiz:
+            </p>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '15px',
+              marginBottom: '20px'
+            }}>
+              {topics.map((topic, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleTopicSelection(topic)}
+                  style={{
+                    background: selectedTopics.includes(topic) 
+                      ? 'linear-gradient(45deg, #4caf50, #66bb6a)' 
+                      : 'rgba(255,255,255,0.1)',
+                    color: selectedTopics.includes(topic) ? 'white' : '#e0dede',
+                    border: selectedTopics.includes(topic) 
+                      ? '2px solid #4caf50' 
+                      : '2px solid #16213e',
+                    borderRadius: '10px',
+                    padding: '15px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    textAlign: 'center'
+                  }}
+                >
+                  {selectedTopics.includes(topic) && '✅ '}
+                  {topic}
+                </button>
+              ))}
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <button
+                onClick={() => setShowOptions(true)}
+                disabled={selectedTopics.length === 0}
+                style={{
+                  background: selectedTopics.length === 0 
+                    ? 'linear-gradient(45deg, #666, #888)' 
+                    : 'linear-gradient(45deg, #ff9800, #ffb74d)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '20px',
+                  padding: '12px 30px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: selectedTopics.length === 0 ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                🎯 Proceed to Interactive Elements ({selectedTopics.length} topics selected)
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Options */}
         {showOptions && (
@@ -433,7 +832,7 @@ export const WhizardPage = () => {
             border: '1px solid rgba(255,255,255,0.1)',
             animation: 'fadeIn 0.5s ease-in'
           }}>
-            <h3 style={{ textAlign: 'center', marginBottom: '30px', color: '#64b5f6' }}>
+            <h3 style={{ textAlign: 'center', marginBottom: '30px', color: '#4caf50' }}>
               🎯 Choose an Interactive Element:
             </h3>
             <div style={{
@@ -481,6 +880,36 @@ export const WhizardPage = () => {
           isOpen={isQuizOpen}
           onClose={handleQuizClose}
           onComplete={handleQuizComplete}
+        />
+      )}
+
+      {/* Timeline Component */}
+      {activeTimeline && (
+        <TimelineComponent
+          timelineData={activeTimeline}
+          isOpen={isTimelineOpen}
+          onClose={handleTimelineClose}
+          onComplete={handleTimelineComplete}
+        />
+      )}
+
+      {/* Mindmap Component */}
+      {activeMindmap && (
+        <MindmapComponent
+          mindmapData={activeMindmap}
+          isOpen={isMindmapOpen}
+          onClose={handleMindmapClose}
+          onComplete={handleMindmapComplete}
+        />
+      )}
+
+      {/* Flashcard Component */}
+      {activeFlashcard && (
+        <FlashcardComponent
+          flashcardData={activeFlashcard}
+          isOpen={isFlashcardOpen}
+          onClose={handleFlashcardClose}
+          onComplete={handleFlashcardComplete}
         />
       )}
 

@@ -5,15 +5,23 @@ load_dotenv()
 
 class Config:
     """Application configuration"""
-    
+    # Database Configuration
+    # Ensure the sqlite_db directory exists
+    if not os.path.exists("sqlite_db"):
+        os.makedirs("sqlite_db")
+        
+    DATABASE_FILE = os.path.join("sqlite_db", "whizardlm.db")
+
     # API Configuration
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-    PORT = int(os.getenv("PORT", 8001))
+    PORT = int(os.getenv("PORT", 8000))
     
     # CORS Configuration
     ALLOWED_ORIGINS = [
         "http://localhost:3000",  # React dev server
+        "http://localhost:3001",  # React dev server (alt port)
         "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
     ]
     
     # File Upload Configuration

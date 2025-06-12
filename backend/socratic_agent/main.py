@@ -1,1 +1,0 @@
-# Socratic Chat Agent

@@ -65,9 +65,8 @@ export const WhizardPage = () => {
       const topicsFormData = new FormData();
       topicsFormData.append('conversation_id', convId);
       
-      const topicsResponse = await fetch('http://localhost:8000/topics', {
-        method: 'POST',
-        body: topicsFormData,
+      const topicsResponse = await fetch('http://localhost:8000/topics/' + convId, {
+        method: 'GET',
       });
       
       if (!topicsResponse.ok) {

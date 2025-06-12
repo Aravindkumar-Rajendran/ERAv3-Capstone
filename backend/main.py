@@ -218,7 +218,7 @@ async def generate_interactives(
         content = retriever.retrieve_content_with_topics(topics)
         print(f"📄 Retrieved content length: {len(content) if content else 0}")
         
-        if not content or not content.strip():
+        if not content:
             raise HTTPException(
                 status_code=400,
                 detail="No content found for the provided topics. Please try different topics."
@@ -265,7 +265,7 @@ async def generate_timeline(
         retriever = Retriever(conversation_id=conversation_id)
         content = retriever.retrieve_content_with_topics(topics)
         
-        if not content or not content.strip():
+        if not content:
             raise HTTPException(
                 status_code=400,
                 detail="No content found for the provided topics. Please try different topics."
@@ -333,7 +333,7 @@ async def generate_mindmap(
         retriever = Retriever(conversation_id=conversation_id)
         content = retriever.retrieve_content_with_topics(topics)
         
-        if not content or not content.strip():
+        if not content:
             raise HTTPException(
                 status_code=400,
                 detail="No content found for the provided topics. Please try different topics."
@@ -393,7 +393,7 @@ async def generate_flashcard(
         retriever = Retriever(conversation_id=conversation_id)
         content = retriever.retrieve_content_with_topics(topics)
         
-        if not content or not content.strip():
+        if not content:
             raise HTTPException(
                 status_code=400,
                 detail="No content found for the provided topics. Please try different topics."

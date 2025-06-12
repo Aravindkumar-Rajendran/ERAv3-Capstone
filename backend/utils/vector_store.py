@@ -71,11 +71,16 @@ class Retriever:
         for topic in topics:
             results = self.collection.get(
                 where={
-                    "conversation_id": self.conversation_id,
-                    "topic": topic
+                    "$and": [
+                        {"conversation_id": {"$eq": self.conversation_id}},
+                        {"topic": {"$eq": topic}}
+                    ]
                 }
             )
             all_chunks.extend(results.get("documents", []))
-        return all_chunks
+        
+        # Join all chunks into a single content string
+        content = "\n\n".join(all_chunks)
+        return content
 
 

@@ -9,12 +9,14 @@ class Config:
 
     # API Configuration
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-    PORT = int(os.getenv("PORT", 8001))
+    PORT = int(os.getenv("PORT", 8000))
     
     # CORS Configuration
     ALLOWED_ORIGINS = [
         "http://localhost:3000",  # React dev server
+        "http://localhost:3001",  # React dev server (alt port)
         "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
     ]
     
     # File Upload Configuration

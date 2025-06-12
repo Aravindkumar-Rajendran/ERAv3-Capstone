@@ -67,8 +67,9 @@ class Extractor:
             
             if not extracted_text:
                 raise ValueError("No text could be extracted from the PDF")
-                return ""
             
+            print(f"Extracted {len(extracted_text)} characters from PDF")
+
             return self.clean_extracted_text(extracted_text)
             
         except Exception as e:
@@ -89,10 +90,16 @@ class Extractor:
         for url in youtube_urls:
             if "youtube.com/watch?v=" in url or "youtu.be/" in url:
                 video_id = url.split("v=")[-1].split("&")[0] if "v=" in url else url.split("/")[-1]
+                print("Video ID:", video_id)
                 # Fetch YouTube transcript
-                transcript = ytt_api.fetch(video_id)
-                content = " ".join([item['text'] for item in transcript.snippets])
-                chunks.append(content)
+                try:
+                    transcript = ytt_api.fetch(video_id).to_raw_data()
+                    print(f"Fetched transcript for {video_id} with {len(transcript)} snippets")
+                except Exception as e:
+                    print(f"Failed to fetch transcript for {video_id}: {str(e)}")
+                    continue
+                content = " ".join([item["text"] for item in transcript])
+                chunks.append(content)  
 
         return chunks
 
@@ -103,7 +110,7 @@ class Chunker:
     def __init__(self, chunk_size: int = 500):
         self.chunk_size = chunk_size
 
-    def chunk_with_topics(self, contents):
+    async def chunk_with_topics(self, contents):
         """
         Splits each content string into chunks and assigns a dummy topic for each chunk.
         Returns a tuple: (chunks, topics)
@@ -111,7 +118,7 @@ class Chunker:
         chunks = []
         topics = []
         for content in contents:
-            response = client.generate_chunk_and_topics(content, chunking_and_topics_gen_prompt)
+            response = await client.generate_chunk_and_topics(content, chunking_and_topics_gen_prompt)
             for item in response:
                 topic = item.get("topic")
                 content = item.get("content", "")

@@ -3,7 +3,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 
-from models import QuizRequest, QuizResponse
+from models import QuizRequest, QuizResponse, TimelineResponse, MindmapResponse, FlashcardResponse
 from utils.gemini_client import GeminiClient
 from prompts.quiz import COMPREHENSIVE_QUIZ_PROMPT
 from utils.preprocessor import Chunker, Extractor
@@ -201,21 +201,33 @@ async def generate_interactives(
     """
     
     try:
+        print(f"📥 Received interaction request with topics: {topics}, conversation_id: {conversation_id}")
+        
         if not topics or len(topics) == 0:
             raise HTTPException(
                 status_code=400, 
                 detail="No topics provided. Please provide at least one topic."
             )
         
+        print(f"🔍 Creating retriever for conversation: {conversation_id}")
         retriever = Retriever(conversation_id=conversation_id)
         
         print(f"Retrieving content for topics: {topics}")
 
         # retrieve content based on topics
         content = retriever.retrieve_content_with_topics(topics)
+        print(f"📄 Retrieved content length: {len(content) if content else 0}")
+        
+        if not content or not content.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="No content found for the provided topics. Please try different topics."
+            )
 
+        print(f"🤖 Generating quiz with Gemini...")
         # Generate quiz using Gemini
         quiz_json = await gemini_client.generate_quiz(content, COMPREHENSIVE_QUIZ_PROMPT)
+        print(f"✅ Quiz generated successfully!")
         
         return QuizResponse(
             quiz_data=quiz_json,
@@ -223,10 +235,203 @@ async def generate_interactives(
             message="Quiz generated successfully"
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"❌ Error in generate_interactives: {str(e)}")
+        print(f"❌ Error type: {type(e).__name__}")
+        import traceback
+        print(f"❌ Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate quiz: {str(e)}"
+        )
+
+@app.post("/interact-timeline", response_model=TimelineResponse)
+async def generate_timeline(
+    topics: Optional[List[str]] = Form(None),
+    conversation_id: str = Form(..., description="Unique conversation identifier")
+):
+    """Generate a timeline based on selected topics."""
+    try:
+        print(f"📥 Received timeline request with topics: {topics}, conversation_id: {conversation_id}")
+        
+        if not topics or len(topics) == 0:
+            raise HTTPException(
+                status_code=400, 
+                detail="No topics provided. Please provide at least one topic."
+            )
+        
+        retriever = Retriever(conversation_id=conversation_id)
+        content = retriever.retrieve_content_with_topics(topics)
+        
+        if not content or not content.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="No content found for the provided topics. Please try different topics."
+            )
+
+        # Import timeline prompt
+        from prompts.timeline import COMPREHENSIVE_TIMELINE_PROMPT
+        
+        # Generate timeline using Gemini
+        full_prompt = f"{COMPREHENSIVE_TIMELINE_PROMPT}\n\nCONTENT TO ANALYZE:\n{content}"
+        timeline_response = gemini_client.generate(full_prompt)
+        
+        # Parse JSON response
+        import json
+        if "```json" in timeline_response:
+            start = timeline_response.find("```json") + 7
+            end = timeline_response.find("```", start)
+            timeline_response = timeline_response[start:end].strip()
+        elif "```" in timeline_response:
+            start = timeline_response.find("```") + 3
+            end = timeline_response.find("```", start)
+            timeline_response = timeline_response[start:end].strip()
+        
+        timeline_json = json.loads(timeline_response)
+        
+        # Check if timeline generation was rejected
+        if "error" in timeline_json and timeline_json["error"] == "TIMELINE_NOT_SUITABLE":
+            return TimelineResponse(
+                timeline_data={"error": "TIMELINE_NOT_SUITABLE", "message": timeline_json["message"]},
+                status="rejected",
+                message=timeline_json["message"]
+            )
+        
+        return TimelineResponse(
+            timeline_data=timeline_json,
+            status="success",
+            message="Timeline generated successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in generate_timeline: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate timeline: {str(e)}"
+        )
+
+
+@app.post("/interact-mindmap", response_model=MindmapResponse)
+async def generate_mindmap(
+    topics: Optional[List[str]] = Form(None),
+    conversation_id: str = Form(..., description="Unique conversation identifier")
+):
+    """Generate a mindmap based on selected topics."""
+    try:
+        print(f"📥 Received mindmap request with topics: {topics}, conversation_id: {conversation_id}")
+        
+        if not topics or len(topics) == 0:
+            raise HTTPException(
+                status_code=400, 
+                detail="No topics provided. Please provide at least one topic."
+            )
+        
+        retriever = Retriever(conversation_id=conversation_id)
+        content = retriever.retrieve_content_with_topics(topics)
+        
+        if not content or not content.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="No content found for the provided topics. Please try different topics."
+            )
+
+        # Import mindmap prompt
+        from prompts.mindmap import COMPREHENSIVE_MINDMAP_PROMPT
+        
+        # Generate mindmap using Gemini
+        full_prompt = f"{COMPREHENSIVE_MINDMAP_PROMPT}\n\nCONTENT TO ANALYZE:\n{content}"
+        mindmap_response = gemini_client.generate(full_prompt)
+        
+        # Parse JSON response
+        import json
+        if "```json" in mindmap_response:
+            start = mindmap_response.find("```json") + 7
+            end = mindmap_response.find("```", start)
+            mindmap_response = mindmap_response[start:end].strip()
+        elif "```" in mindmap_response:
+            start = mindmap_response.find("```") + 3
+            end = mindmap_response.find("```", start)
+            mindmap_response = mindmap_response[start:end].strip()
+        
+        mindmap_json = json.loads(mindmap_response)
+        
+        return MindmapResponse(
+            mindmap_data=mindmap_json,
+            status="success",
+            message="Mindmap generated successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in generate_mindmap: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate mindmap: {str(e)}"
+        )
+
+
+@app.post("/interact-flashcard", response_model=FlashcardResponse)
+async def generate_flashcard(
+    topics: Optional[List[str]] = Form(None),
+    conversation_id: str = Form(..., description="Unique conversation identifier")
+):
+    """Generate flashcards based on selected topics."""
+    try:
+        print(f"📥 Received flashcard request with topics: {topics}, conversation_id: {conversation_id}")
+        
+        if not topics or len(topics) == 0:
+            raise HTTPException(
+                status_code=400, 
+                detail="No topics provided. Please provide at least one topic."
+            )
+        
+        retriever = Retriever(conversation_id=conversation_id)
+        content = retriever.retrieve_content_with_topics(topics)
+        
+        if not content or not content.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="No content found for the provided topics. Please try different topics."
+            )
+
+        # Import flashcard prompt
+        from prompts.flashcard import COMPREHENSIVE_FLASHCARD_PROMPT
+        
+        # Generate flashcard using Gemini
+        full_prompt = f"{COMPREHENSIVE_FLASHCARD_PROMPT}\n\nCONTENT TO ANALYZE:\n{content}"
+        flashcard_response = gemini_client.generate(full_prompt)
+        
+        # Parse JSON response
+        import json
+        if "```json" in flashcard_response:
+            start = flashcard_response.find("```json") + 7
+            end = flashcard_response.find("```", start)
+            flashcard_response = flashcard_response[start:end].strip()
+        elif "```" in flashcard_response:
+            start = flashcard_response.find("```") + 3
+            end = flashcard_response.find("```", start)
+            flashcard_response = flashcard_response[start:end].strip()
+        
+        flashcard_json = json.loads(flashcard_response)
+        
+        return FlashcardResponse(
+            flashcard_data=flashcard_json,
+            status="success",
+            message="Flashcard generated successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in generate_flashcard: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate flashcard: {str(e)}"
         )
 
 

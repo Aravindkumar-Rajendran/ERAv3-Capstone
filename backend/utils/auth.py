@@ -5,6 +5,7 @@ from fastapi import HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from config import Config
 import logging
+import time
 
 # Initialize Firebase Admin SDK
 def initialize_firebase():
@@ -42,8 +43,18 @@ class AuthManager:
                     detail="Firebase not properly configured"
                 )
             
-            # Verify the ID token
-            decoded_token = auth.verify_id_token(token)
+            # FIXED: Verify the ID token with clock tolerance
+            # This handles timing issues between client and server
+            try:
+                decoded_token = auth.verify_id_token(token, clock_skew_seconds=60)
+            except auth.InvalidIdTokenError as e:
+                # If timing error, wait a moment and retry
+                if "too early" in str(e).lower():
+                    logging.warning(f"Token timing issue, retrying: {e}")
+                    time.sleep(3)
+                    decoded_token = auth.verify_id_token(token, clock_skew_seconds=120)
+                else:
+                    raise e
             
             user_info = {
                 "user_id": decoded_token['uid'],
@@ -54,10 +65,27 @@ class AuthManager:
             
             return user_info
             
-        except Exception as e:
+        except auth.ExpiredIdTokenError:
             raise HTTPException(
                 status_code=401,
-                detail=f"Invalid authentication token: {str(e)}"
+                detail="Token has expired. Please login again."
+            )
+        except auth.InvalidIdTokenError as e:
+            if "too early" in str(e).lower():
+                raise HTTPException(
+                    status_code=401,
+                    detail="Token timing issue. Please wait a moment and try again."
+                )
+            else:
+                raise HTTPException(
+                    status_code=401,
+                    detail=f"Invalid token format: {str(e)}"
+                )
+        except Exception as e:
+            logging.error(f"Token verification error: {e}")
+            raise HTTPException(
+                status_code=401,
+                detail=f"Authentication failed: {str(e)}"
             )
     
     async def get_current_user(self, credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:

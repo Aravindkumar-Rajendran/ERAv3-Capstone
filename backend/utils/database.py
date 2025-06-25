@@ -435,6 +435,27 @@ class DatabaseClient:
             }
         return None
 
+    def get_user_by_email(self, email):
+        """Get user information by email address"""
+        conn = create_connection(self.db_file)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT user_id, email, name, email_verified, created_at, last_login FROM users WHERE email = ?",
+            (email,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return {
+                "user_id": row[0],
+                "email": row[1], 
+                "name": row[2],
+                "email_verified": row[3],
+                "created_at": row[4],
+                "last_login": row[5]
+            }
+        return None
+
     def get_user_conversations(self, user_id):
         """Get all conversations for a user"""
         conn = create_connection(self.db_file)

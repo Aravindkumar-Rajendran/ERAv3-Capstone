@@ -187,6 +187,59 @@ async def mock_login(email: str = Form(...)):
             detail=f"Mock login failed: {str(e)}"
         )
 
+# NEW: Check if user exists (public endpoint for sign up/login flow)
+@app.post("/auth/check-user")
+async def check_user_exists(email: str = Form(...)):
+    """Check if a user exists in the system (public endpoint)"""
+    try:
+        # Check if user exists in database by email
+        user_data = database_client.get_user_by_email(email)
+        
+        return {
+            "status": "success",
+            "exists": user_data is not None,
+            "message": "User exists" if user_data else "User not found"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to check user existence: {str(e)}"
+        )
+
+# NEW: Register new user (public endpoint)
+@app.post("/auth/register")
+async def register_new_user(current_user: dict = Depends(get_current_user)):
+    """Register a new user in the system"""
+    try:
+        # Check if user already exists
+        existing_user = database_client.get_user(current_user["user_id"])
+        if existing_user:
+            raise HTTPException(
+                status_code=400,
+                detail="User already exists in the system"
+            )
+        
+        # Create new user
+        database_client.create_or_update_user(
+            user_id=current_user["user_id"],
+            email=current_user["email"],
+            name=current_user.get("name"),
+            email_verified=current_user.get("email_verified", False)
+        )
+        
+        return {
+            "status": "success",
+            "message": "User registered successfully",
+            "user": current_user
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to register user: {str(e)}"
+        )
+
 @app.post("/upload")
 async def upload(
     current_user: dict = Depends(get_current_user),
@@ -257,8 +310,8 @@ async def chat(
     conversation_id: str = Form(..., description="Unique conversation identifier"),
 ):
     """
-    Chat with the LLM using user input and optional context.
-    The LLM will respond based on the provided input and context.
+    Chat with the LLM using user input, context, and conversation history.
+    The LLM will respond based on the provided input, context, and previous conversation.
     """
     
     try:
@@ -272,11 +325,26 @@ async def chat(
 
         # Retrieve context based on user input
         context = retriever.semantic_search(user_input)
-
         print(f"Retrieved context: {context}")
 
-        # Generate response using Gemini
-        response = gemini_client.chat(user_input, context)
+        # Retrieve conversation history for multi-turn dialogue
+        conversation_history = database_client.read_chat_messages(conversation_id, user_id=current_user["user_id"])
+        print(f"Retrieved conversation history: {len(conversation_history) if conversation_history else 0} messages")
+        
+        # DEBUG: Print the exact structure of conversation history
+        if conversation_history:
+            print(f"DEBUG: First message structure: {conversation_history[0]}")
+            for i, msg in enumerate(conversation_history):
+                print(f"DEBUG: Message {i}: type='{msg.get('type')}', content='{msg.get('content', '')[:50]}...'")
+
+        # Generate response using Gemini with conversation history
+        try:
+            response = gemini_client.chat(user_input, context, conversation_history)
+            print(f"DEBUG: Successfully generated response")
+        except Exception as gemini_error:
+            print(f"DEBUG: Gemini error: {str(gemini_error)}")
+            print(f"DEBUG: Gemini error type: {type(gemini_error).__name__}")
+            raise gemini_error
 
         # Save both user message and assistant response to database with user_id
         database_client.write_chat_message(conversation_id, "user", user_input, user_id=current_user["user_id"])
@@ -289,6 +357,10 @@ async def chat(
         }
         
     except Exception as e:
+        print(f"DEBUG: Chat endpoint error: {str(e)}")
+        print(f"DEBUG: Error type: {type(e).__name__}")
+        import traceback
+        print(f"DEBUG: Full traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate chat response: {str(e)}"

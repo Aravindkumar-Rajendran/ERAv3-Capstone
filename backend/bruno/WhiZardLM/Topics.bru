@@ -5,7 +5,11 @@ meta {
 }
 
 get {
-  url: http://localhost:8000/topics/d95bf502-4aa1-41bc-a83b-b7f57177ae0d
+  url: http://localhost:8000/topics/{{conversation_id}}
   body: multipartForm
-  auth: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
 }

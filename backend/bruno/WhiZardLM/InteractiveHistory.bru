@@ -1,0 +1,15 @@
+meta {
+  name: InteractiveHistory
+  type: http
+  seq: 8
+}
+
+get {
+  url: http://localhost:8000/interactive-history/{{conversation_id}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}

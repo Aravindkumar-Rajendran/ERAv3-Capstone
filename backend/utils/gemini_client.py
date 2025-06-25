@@ -3,6 +3,7 @@ import json
 import google.generativeai as genai
 from typing import Dict, Any
 from dotenv import load_dotenv
+from prompts.socratic_chat import SOCRATIC_CHAT_PROMPT
 
 load_dotenv()
 
@@ -18,21 +19,21 @@ class GeminiClient:
 
     def chat(self, user_input: str, context: list) -> str:
         """
-        Generate a response from Gemini 2.0 Flash model
+        Generate a Socratic response from Gemini 2.0 Flash model
         
         Args:
             user_input: User's input text
             context: Retrieved context from the vector store
             
         Returns:
-            str: Generated response text
+            str: Generated Socratic response text
         """
         user_input = user_input.strip()
-        prompt = "You are a helpful assistant. Please answer the user's question based on the provided context."
+        
         if context:
-            prompt += f"\n\nContext:\n{context}\n\nUser Input:\n{user_input}"
+            prompt = f"{SOCRATIC_CHAT_PROMPT}\n\nCONTEXT (use this to inform your questions and examples, referencing the student's uploaded materials):\n{context}\n\nSTUDENT QUESTION:\n{user_input}\n\nYour Socratic Response:"
         else:
-            prompt += f"\n\nUser Input:\n{user_input}"
+            prompt = f"{SOCRATIC_CHAT_PROMPT}\n\nSTUDENT QUESTION:\n{user_input}\n\nYour Socratic Response:"
 
         try:
             response = self.model.generate_content(

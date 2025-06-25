@@ -1,11 +1,11 @@
 meta {
-  name: Chat
+  name: InteractTimeline
   type: http
-  seq: 3
+  seq: 11
 }
 
 post {
-  url: http://localhost:8000/chat
+  url: http://localhost:8000/interact-timeline
   body: multipartForm
   auth: bearer
 }
@@ -14,8 +14,8 @@ auth:bearer {
   token: {{auth_token}}
 }
 
-
 body:multipart-form {
   conversation_id: {{conversation_id}}
-  user_input: What is ductility
-}
+  topics: Historical Events @contentType(Array)
+  topics: Timeline Creation
+} 

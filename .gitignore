@@ -33,3 +33,20 @@ __pycache__/
 backend/chroma_db/*
 backend/chroma_db/chroma.sqlite3
 backend/sqlite_db/whizardlm.db
+
+# Firebase credentials and auth files (SECURITY)
+backend/firebase-service-account.json
+backend/simple_test.html
+backend/test_result.html
+
+# Local databases
+backend/sqlite_db/
+backend/chroma_db/
+
+# Python virtual environments
+backend/env/
+backend/venv/
+backend/.venv/
+
+# UV package manager
+backend/uv.lock

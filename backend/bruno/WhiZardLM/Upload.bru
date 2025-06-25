@@ -7,10 +7,23 @@ meta {
 post {
   url: http://localhost:8000/upload
   body: multipartForm
-  auth: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
 }
 
 body:multipart-form {
   youtube_urls: https://youtu.be/XwDxFluPkuk
   youtube_urls: https://www.youtube.com/watch?v=rFZrL1RiuVI
+}
+
+tests {
+  test("Save conversation_id for other tests", function() {
+    if (res.getBody().conversation_id) {
+      bru.setEnvVar("conversation_id", res.getBody().conversation_id);
+      console.log("✅ Conversation ID saved:", res.getBody().conversation_id);
+    }
+  });
 }

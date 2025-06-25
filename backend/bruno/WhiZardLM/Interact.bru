@@ -7,11 +7,15 @@ meta {
 post {
   url: http://localhost:8000/interact
   body: multipartForm
-  auth: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
 }
 
 body:multipart-form {
-  conversation_id: da762bd0-6d3b-445d-b372-2f862e2090d0
+  conversation_id: {{conversation_id}}
   topics: Ductility in Metals Defined @contentType(Array)
   topics: Metals Used in Cooking
 }

@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WhizardLM Authentication</title>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        button { padding: 12px 24px; margin: 10px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; }
+        .login-btn { background: #4285f4; color: white; }
+        .signup-btn { background: #34a853; color: white; }
+        .logout-btn { background: #ea4335; color: white; }
+        .clear-btn { background: #ff9800; color: white; }
+        .result { margin-top: 20px; padding: 15px; border-radius: 5px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .warning { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        textarea { width: 100%; margin: 10px 0; }
+        .auth-section { margin: 20px 0; padding: 20px; border: 2px solid #ddd; border-radius: 10px; }
+        .disabled { opacity: 0.6; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <h1>🧙‍♂️ WhizardLM Authentication</h1>
+    
+    <div class="auth-section">
+        <h2>Authentication</h2>
+        <div id="auth-container">
+            <button id="signupBtn" class="signup-btn">🆕 Sign Up (New Users)</button>
+            <button id="loginBtn" class="login-btn">🔐 Login (Existing Users)</button>
+            <button id="logoutBtn" class="logout-btn" style="display: none;">🚪 Logout</button>
+            <button id="clearSessionBtn" class="clear-btn">🧹 Clear Browser Data</button>
+        </div>
+    </div>
+    
+    <div id="result"></div>
+    
+    <script>
+        // Firebase config
+        const firebaseConfig = {
+            apiKey: "YOUR_FIREBASE_API_KEY_HERE",
+            authDomain: "whizard-lm.firebaseapp.com",
+            projectId: "whizard-lm"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        
+        // Elements
+        const signupBtn = document.getElementById('signupBtn');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const clearSessionBtn = document.getElementById('clearSessionBtn');
+        const result = document.getElementById('result');
+        
+        // Prevent multiple popups
+        let authInProgress = false;
+        
+        // Check auth state on page load
+        firebase.auth().onAuthStateChanged((user) => {
+            if (user && !authInProgress) {
+                showLoggedInState(user);
+            } else if (!authInProgress) {
+                showLoggedOutState();
+            }
+        });
+        
+        // Sign Up function (for new users)
+        signupBtn.addEventListener('click', async () => {
+            await performAuthentication('signup');
+        });
+        
+        // Login function (for existing users)
+        loginBtn.addEventListener('click', async () => {
+            await performAuthentication('login');
+        });
+        
+        // Main authentication function
+        async function performAuthentication(flow) {
+            if (authInProgress) {
+                result.innerHTML = `
+                    <div class="result warning">
+                        <h3>⚠️ Authentication in Progress</h3>
+                        <p>Please wait for the current authentication to complete.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            try {
+                authInProgress = true;
+                disableButtons();
+                
+                // Show loading
+                result.innerHTML = `
+                    <div class="result info">
+                        <h3>⏳ Authenticating...</h3>
+                        <p>Please complete authentication in the popup window.</p>
+                    </div>
+                `;
+                
+                const provider = new firebase.auth.GoogleAuthProvider();
+                
+                // Standard Google OAuth setup
+                provider.setCustomParameters({
+                    prompt: 'select_account'
+                });
+                
+                provider.addScope('email');
+                provider.addScope('profile');
+                
+                // Authenticate with popup
+                const result_auth = await firebase.auth().signInWithPopup(provider);
+                const user = result_auth.user;
+                
+                // FIXED: Wait a moment and then get token to avoid timing issues
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                const token = await user.getIdToken(true);
+                
+                // Check if user exists in our backend
+                const userStatus = await checkUserExists(user.email);
+                
+                // Validate flow vs user status
+                if (flow === 'signup' && userStatus.exists) {
+                    // User tried to sign up but already exists
+                    await firebase.auth().signOut();
+                    result.innerHTML = `
+                        <div class="result warning">
+                            <h3>⚠️ Account Already Exists</h3>
+                            <p><strong>Email:</strong> ${user.email}</p>
+                            <p>This account already exists in our system. Please use the <strong>Login</strong> button instead.</p>
+                            <p><em>You have been automatically signed out for security.</em></p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                if (flow === 'login' && !userStatus.exists) {
+                    // User tried to login but doesn't exist
+                    await firebase.auth().signOut();
+                    result.innerHTML = `
+                        <div class="result warning">
+                            <h3>⚠️ Account Not Found</h3>
+                            <p><strong>Email:</strong> ${user.email}</p>
+                            <p>This account doesn't exist in our system. Please use the <strong>Sign Up</strong> button to create a new account.</p>
+                            <p><em>You have been automatically signed out for security.</em></p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Valid authentication - proceed
+                if (flow === 'signup') {
+                    // Register new user in backend
+                    await registerNewUser(token);
+                    showLoggedInState(user, token, 'Welcome! Your account has been created successfully.');
+                } else {
+                    // Login existing user - just verify token
+                    await verifyUserToken(token);
+                    showLoggedInState(user, token, 'Welcome back! You have logged in successfully.');
+                }
+                
+            } catch (error) {
+                console.error('Authentication error:', error);
+                
+                if (error.code === 'auth/popup-closed-by-user') {
+                    result.innerHTML = `
+                        <div class="result info">
+                            <h3>ℹ️ Authentication Cancelled</h3>
+                            <p>You cancelled the authentication process.</p>
+                        </div>
+                    `;
+                } else if (error.code === 'auth/popup-blocked') {
+                    result.innerHTML = `
+                        <div class="result error">
+                            <h3>❌ Popup Blocked</h3>
+                            <p>Your browser blocked the authentication popup. Please allow popups for this site and try again.</p>
+                        </div>
+                    `;
+                } else if (error.code === 'auth/cancelled-popup-request') {
+                    result.innerHTML = `
+                        <div class="result warning">
+                            <h3>⚠️ Multiple Popups Detected</h3>
+                            <p>Another authentication popup was already open. Please try again.</p>
+                        </div>
+                    `;
+                } else {
+                    result.innerHTML = `
+                        <div class="result error">
+                            <h3>❌ Authentication Failed</h3>
+                            <p><strong>Error:</strong> ${error.message}</p>
+                            <p><strong>Code:</strong> ${error.code}</p>
+                        </div>
+                    `;
+                }
+            } finally {
+                authInProgress = false;
+                enableButtons();
+            }
+        }
+        
+        // Check if user exists in backend
+        async function checkUserExists(email) {
+            try {
+                const response = await fetch('/auth/check-user', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `email=${encodeURIComponent(email)}`
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                return { exists: data.exists };
+            } catch (error) {
+                console.error('Error checking user:', error);
+                // Fallback to localStorage for testing
+                const existingUsers = JSON.parse(localStorage.getItem('whizard_users') || '[]');
+                const exists = existingUsers.some(user => user.email === email);
+                return { exists };
+            }
+        }
+        
+        // Verify user token for login
+        async function verifyUserToken(token) {
+            try {
+                const response = await fetch('/auth/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Token verification failed');
+                }
+                
+                const data = await response.json();
+                console.log('Token verified successfully:', data);
+                return data;
+            } catch (error) {
+                console.error('Error verifying token:', error);
+                throw error;
+            }
+        }
+        
+        // Register new user in backend
+        async function registerNewUser(token) {
+            try {
+                // Call backend API to register user
+                const response = await fetch('/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Registration failed');
+                }
+                
+                const data = await response.json();
+                console.log('User registered successfully:', data);
+                
+                // Also save to localStorage as backup
+                const user = firebase.auth().currentUser;
+                const existingUsers = JSON.parse(localStorage.getItem('whizard_users') || '[]');
+                if (!existingUsers.some(u => u.email === user.email)) {
+                    existingUsers.push({
+                        email: user.email,
+                        name: user.displayName,
+                        registeredAt: new Date().toISOString()
+                    });
+                    localStorage.setItem('whizard_users', JSON.stringify(existingUsers));
+                }
+                
+                return data;
+            } catch (error) {
+                console.error('Error registering user:', error);
+                // Fallback to localStorage for testing
+                const user = firebase.auth().currentUser;
+                const existingUsers = JSON.parse(localStorage.getItem('whizard_users') || '[]');
+                existingUsers.push({
+                    email: user.email,
+                    name: user.displayName,
+                    registeredAt: new Date().toISOString()
+                });
+                localStorage.setItem('whizard_users', JSON.stringify(existingUsers));
+                throw error;
+            }
+        }
+        
+        // Logout function
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await firebase.auth().signOut();
+                showLoggedOutState();
+                result.innerHTML = `
+                    <div class="result success">
+                        <h3>✅ Logged Out Successfully</h3>
+                        <p>You have been signed out securely.</p>
+                    </div>
+                `;
+            } catch (error) {
+                result.innerHTML = `
+                    <div class="result error">
+                        <h3>❌ Logout Failed</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                console.error('Logout error:', error);
+            }
+        });
+        
+        // Clear browser data
+        clearSessionBtn.addEventListener('click', async () => {
+            try {
+                // Sign out from Firebase
+                await firebase.auth().signOut();
+                
+                // Clear browser data
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Clear cookies
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                });
+                
+                showLoggedOutState();
+                result.innerHTML = `
+                    <div class="result success">
+                        <h3>✅ Browser Data Cleared</h3>
+                        <p>Local storage, session storage, and cookies have been cleared.</p>
+                    </div>
+                `;
+            } catch (error) {
+                result.innerHTML = `
+                    <div class="result error">
+                        <h3>❌ Clear Failed</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        });
+        
+        // Button state management
+        function disableButtons() {
+            signupBtn.disabled = true;
+            loginBtn.disabled = true;
+            signupBtn.classList.add('disabled');
+            loginBtn.classList.add('disabled');
+        }
+        
+        function enableButtons() {
+            signupBtn.disabled = false;
+            loginBtn.disabled = false;
+            signupBtn.classList.remove('disabled');
+            loginBtn.classList.remove('disabled');
+        }
+        
+        // Show logged in state
+        function showLoggedInState(user, token = null, message = '') {
+            signupBtn.style.display = 'none';
+            loginBtn.style.display = 'none';
+            logoutBtn.style.display = 'inline-block';
+            
+            let tokenDisplay = '';
+            if (token) {
+                tokenDisplay = `
+                    <h3>🔑 JWT Token for API Testing:</h3>
+                    <textarea rows="6" cols="120" style="font-size: 12px;" readonly>${token}</textarea>
+                    <p><small>Copy this token and use it as Bearer token in Bruno for API testing</small></p>
+                `;
+            }
+            
+            result.innerHTML = `
+                <div class="result success">
+                    <h3>✅ Authentication Successful!</h3>
+                    ${message ? `<p><strong>${message}</strong></p>` : ''}
+                    <p><strong>Welcome:</strong> ${user.displayName || 'User'}</p>
+                    <p><strong>Email:</strong> ${user.email}</p>
+                    <p><strong>Email Verified:</strong> ${user.emailVerified ? 'Yes' : 'No'}</p>
+                    <p><strong>Login Time:</strong> ${new Date().toLocaleString()}</p>
+                    ${tokenDisplay}
+                </div>
+            `;
+        }
+        
+        // Show logged out state
+        function showLoggedOutState() {
+            signupBtn.style.display = 'inline-block';
+            loginBtn.style.display = 'inline-block';
+            logoutBtn.style.display = 'none';
+        }
+    </script>
+</body>
+</html> 

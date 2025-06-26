@@ -1,11 +1,11 @@
 meta {
-  name: Debug User Info
+  name: Auth verify
   type: http
-  seq: 14
+  seq: 13
 }
 
-get {
-  url: {{base_url}}/debug/user-info
+post {
+  url: {{base_url}}/auth/verify
   body: none
   auth: bearer
 }

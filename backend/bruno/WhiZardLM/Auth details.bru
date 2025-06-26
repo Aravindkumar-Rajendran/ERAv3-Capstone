@@ -1,11 +1,11 @@
 meta {
-  name: Debug User Info
+  name: Auth details
   type: http
-  seq: 14
+  seq: 12
 }
 
 get {
-  url: {{base_url}}/debug/user-info
+  url: {{base_url}}/auth/me
   body: none
   auth: bearer
 }

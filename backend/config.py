@@ -36,6 +36,10 @@ class Config:
     QUESTIONS_PER_QUIZ = 10
     VALID_SUBTYPES = ["MCQ", "TrueFalse", "FillBlanks", "MatchFollowing"]
     
+    # Firebase Configuration
+    FIREBASE_CREDENTIALS_PATH = "firebase-service-account.json"
+    FIREBASE_PROJECT_ID = "whizard-lm"  # Your actual Firebase project ID
+    
     @classmethod
     def validate_config(cls):
         """Validate that required configuration is present"""

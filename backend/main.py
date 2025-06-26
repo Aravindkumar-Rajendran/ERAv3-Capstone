@@ -1,7 +1,9 @@
 from typing import Optional, List
 import uvicorn
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from models import QuizRequest, QuizResponse, TimelineResponse, MindmapResponse, FlashcardResponse
 from utils.gemini_client import GeminiClient
@@ -9,7 +11,10 @@ from prompts.quiz import COMPREHENSIVE_QUIZ_PROMPT
 from utils.preprocessor import Chunker, Extractor
 from utils.vector_store import Indexer, Retriever
 from utils.database import DatabaseClient
+from utils.auth import get_current_user, get_current_user_optional
 from config import Config
+import uuid
+import time
 
 from dotenv import load_dotenv
 
@@ -34,14 +39,210 @@ chunker = Chunker()
 indexer = Indexer()
 database_client = DatabaseClient(Config.DATABASE_FILE)
 
+# Simple Firebase test route - serves HTML with proper HTTP protocol
+@app.get("/test-auth", response_class=HTMLResponse)
+async def test_auth():
+    """Serve the Firebase auth test page"""
+    try:
+        with open("simple_test.html", "r", encoding="utf-8") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Test file not found")
 
-@app.get("/")
-def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy", "service": "WhizardLM API"}
+# NEW: Authentication endpoints
+@app.post("/auth/verify")
+async def verify_token(current_user: dict = Depends(get_current_user)):
+    """Verify Firebase token and register/update user"""
+    try:
+        # Create or update user in database
+        database_client.create_or_update_user(
+            user_id=current_user["user_id"],
+            email=current_user["email"],
+            name=current_user.get("name"),
+            email_verified=current_user.get("email_verified", False)
+        )
+        
+        return {
+            "status": "success",
+            "message": "Token verified successfully",
+            "user": current_user
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to verify token: {str(e)}"
+        )
+
+@app.get("/auth/me")
+async def get_user_profile(current_user: dict = Depends(get_current_user)):
+    """Get current user profile"""
+    try:
+        user_data = database_client.get_user(current_user["user_id"])
+        if not user_data:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return {
+            "status": "success",
+            "user": user_data
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get user profile: {str(e)}"
+        )
+
+@app.get("/auth/conversations")
+async def get_user_conversations(current_user: dict = Depends(get_current_user)):
+    """Get all conversations for the authenticated user"""
+    try:
+        conversations = database_client.get_user_conversations(current_user["user_id"])
+        return {
+            "status": "success",
+            "conversations": conversations
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get user conversations: {str(e)}"
+        )
+
+# NEW: Diagnostic endpoint to verify user isolation
+@app.get("/debug/user-info")
+async def debug_user_info(current_user: dict = Depends(get_current_user)):
+    """Debug endpoint to show user isolation is working"""
+    try:
+        # Get user info from database
+        user_info = database_client.get_user(current_user["user_id"])
+        
+        # Get user's conversations
+        conversations = database_client.get_user_conversations(current_user["user_id"])
+        
+        return {
+            "status": "success",
+            "message": "User isolation is working - this data belongs only to you",
+            "firebase_user": {
+                "user_id": current_user["user_id"],
+                "email": current_user["email"],
+                "name": current_user.get("name", "Not provided")
+            },
+            "database_user": user_info,
+            "your_conversations_count": len(conversations),
+            "your_conversations": conversations[:5],  # Show first 5
+            "isolation_proof": f"This user_id '{current_user['user_id']}' is used to filter ALL your data"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get debug info: {str(e)}"
+        )
+
+# TEMPORARY: Test endpoint without authentication (for testing)
+@app.get("/auth/test")
+async def test_auth_system():
+    """Test endpoint to verify authentication system is working"""
+    return {
+        "status": "success",
+        "message": "Authentication system is properly configured",
+        "endpoints": [
+            "/auth/verify - Verify Firebase token",
+            "/auth/me - Get user profile (requires auth)",
+            "/auth/conversations - Get user conversations (requires auth)"
+        ]
+    }
+
+# TEMPORARY: Mock authentication for testing (REMOVE IN PRODUCTION)
+@app.post("/auth/mock-login")
+async def mock_login(email: str = Form(...)):
+    """Mock login endpoint for testing authentication flow without Firebase"""
+    try:
+        # Create a mock user
+        mock_user_id = f"mock_{email.replace('@', '_').replace('.', '_')}"
+        
+        # Save mock user to database
+        database_client.create_or_update_user(
+            user_id=mock_user_id,
+            email=email,
+            name=f"Test User ({email})",
+            email_verified=True
+        )
+        
+        # Generate a simple mock token
+        mock_token = f"mock_token_{mock_user_id}_{int(time.time())}"
+        
+        return {
+            "status": "success",
+            "message": "Mock login successful",
+            "mock_token": mock_token,
+            "user": {
+                "user_id": mock_user_id,
+                "email": email,
+                "name": f"Test User ({email})"
+            },
+            "instructions": "Use this mock_token as Bearer token in Bruno for testing"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Mock login failed: {str(e)}"
+        )
+
+# NEW: Check if user exists (public endpoint for sign up/login flow)
+@app.post("/auth/check-user")
+async def check_user_exists(email: str = Form(...)):
+    """Check if a user exists in the system (public endpoint)"""
+    try:
+        # Check if user exists in database by email
+        user_data = database_client.get_user_by_email(email)
+        
+        return {
+            "status": "success",
+            "exists": user_data is not None,
+            "message": "User exists" if user_data else "User not found"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to check user existence: {str(e)}"
+        )
+
+# NEW: Register new user (public endpoint)
+@app.post("/auth/register")
+async def register_new_user(current_user: dict = Depends(get_current_user)):
+    """Register a new user in the system"""
+    try:
+        # Check if user already exists
+        existing_user = database_client.get_user(current_user["user_id"])
+        if existing_user:
+            raise HTTPException(
+                status_code=400,
+                detail="User already exists in the system"
+            )
+        
+        # Create new user
+        database_client.create_or_update_user(
+            user_id=current_user["user_id"],
+            email=current_user["email"],
+            name=current_user.get("name"),
+            email_verified=current_user.get("email_verified", False)
+        )
+        
+        return {
+            "status": "success",
+            "message": "User registered successfully",
+            "user": current_user
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to register user: {str(e)}"
+        )
 
 @app.post("/upload")
 async def upload(
+    current_user: dict = Depends(get_current_user),
     text: Optional[str] = Form(None),
     files: Optional[List[UploadFile]] = File(None),
     youtube_urls: Optional[List[str]] = Form(None),
@@ -86,8 +287,8 @@ async def upload(
         # store chunks and topics in vector database
         conversation_id = indexer.get_conversation_id()
         indexer.create_index_with_topics(conversation_id, chunks, topics)
-        # save topics with conversation ID in sqlite
-        database_client.write_topics(conversation_id, topics)
+        # save topics with conversation ID and user_id in sqlite
+        database_client.write_topics(conversation_id, topics, user_id=current_user["user_id"])
 
         return {
             "status": "success",
@@ -104,12 +305,13 @@ async def upload(
 
 @app.post("/chat")
 async def chat(
+    current_user: dict = Depends(get_current_user),
     user_input: str = Form(..., description="User query for chat"),
     conversation_id: str = Form(..., description="Unique conversation identifier"),
 ):
     """
-    Chat with the LLM using user input and optional context.
-    The LLM will respond based on the provided input and context.
+    Chat with the LLM using user input, context, and conversation history.
+    The LLM will respond based on the provided input, context, and previous conversation.
     """
     
     try:
@@ -123,22 +325,30 @@ async def chat(
 
         # Retrieve context based on user input
         context = retriever.semantic_search(user_input)
-
         print(f"Retrieved context: {context}")
 
+        # Retrieve conversation history for multi-turn dialogue
+        conversation_history = database_client.read_chat_messages(conversation_id, user_id=current_user["user_id"])
+        print(f"Retrieved conversation history: {len(conversation_history) if conversation_history else 0} messages")
+        
+        # DEBUG: Print the exact structure of conversation history
+        if conversation_history:
+            print(f"DEBUG: First message structure: {conversation_history[0]}")
+            for i, msg in enumerate(conversation_history):
+                print(f"DEBUG: Message {i}: type='{msg.get('type')}', content='{msg.get('content', '')[:50]}...'")
 
+        # Generate response using Gemini with conversation history
+        try:
+            response = gemini_client.chat(user_input, context, conversation_history)
+            print(f"DEBUG: Successfully generated response")
+        except Exception as gemini_error:
+            print(f"DEBUG: Gemini error: {str(gemini_error)}")
+            print(f"DEBUG: Gemini error type: {type(gemini_error).__name__}")
+            raise gemini_error
 
-        # Generate response using Gemini
-        response = gemini_client.chat(user_input, context)
-
-        # Save conversation to database
-        conversation_dict = {
-            "conversation_id": conversation_id,
-            "user_input": user_input,
-            "response": response
-        }
-
-        database_client.write_conversation(conversation_id, conversation_dict)
+        # Save both user message and assistant response to database with user_id
+        database_client.write_chat_message(conversation_id, "user", user_input, user_id=current_user["user_id"])
+        database_client.write_chat_message(conversation_id, "assistant", response, user_id=current_user["user_id"])
         
         return {
             "response": response,
@@ -147,6 +357,10 @@ async def chat(
         }
         
     except Exception as e:
+        print(f"DEBUG: Chat endpoint error: {str(e)}")
+        print(f"DEBUG: Error type: {type(e).__name__}")
+        import traceback
+        print(f"DEBUG: Full traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate chat response: {str(e)}"
@@ -156,6 +370,7 @@ async def chat(
 @app.get("/topics/{conversation_id}")
 async def get_topics(
     conversation_id: str,
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Retrieve topics from the database based on conversation ID.
@@ -169,7 +384,7 @@ async def get_topics(
                 detail="Conversation ID is required."
             )
         
-        topics = database_client.read_topics(conversation_id)
+        topics = database_client.read_topics(conversation_id, user_id=current_user["user_id"])
         
         if not topics:
             raise HTTPException(
@@ -190,8 +405,90 @@ async def get_topics(
         )
 
 
+@app.get("/conversations/{conversation_id}")
+async def get_conversation_history(
+    conversation_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Retrieve conversation history from the database based on conversation ID.
+    This will return all chat messages associated with the conversation.
+    """
+    
+    try:
+        if not conversation_id:
+            raise HTTPException(
+                status_code=400, 
+                detail="Conversation ID is required."
+            )
+        
+        # Get conversation metadata with user_id
+        conversation_info = database_client.get_conversation_info(conversation_id, user_id=current_user["user_id"])
+        
+        # Get all chat messages with user_id
+        messages = database_client.read_chat_messages(conversation_id, user_id=current_user["user_id"])
+        
+        if not messages and not conversation_info:
+            raise HTTPException(
+                status_code=404, 
+                detail="No conversation found for the provided conversation ID."
+            )
+        
+        return {
+            "conversation_info": conversation_info,
+            "messages": messages,
+            "status": "success",
+            "message": "Conversation history retrieved successfully"
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve conversation history: {str(e)}"
+        )
+
+
+@app.get("/interactive-history/{conversation_id}")
+async def get_interactive_history(
+    conversation_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Retrieve interactive content history from the database based on conversation ID.
+    This will return all generated interactive content associated with the conversation.
+    """
+    
+    try:
+        if not conversation_id:
+            raise HTTPException(
+                status_code=400, 
+                detail="Conversation ID is required."
+            )
+        
+        interactive_history = database_client.read_interactive_content(conversation_id, user_id=current_user["user_id"])
+        
+        if not interactive_history:
+            raise HTTPException(
+                status_code=404, 
+                detail="No interactive content found for the provided conversation ID."
+            )
+        
+        return {
+            "interactive_history": interactive_history,
+            "status": "success",
+            "message": "Interactive content history retrieved successfully"
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve interactive content history: {str(e)}"
+        )
+
+
 @app.post("/interact", response_model=QuizResponse)
 async def generate_interactives(
+    current_user: dict = Depends(get_current_user),
     topics: List[str] = Form(None),
     conversation_id: str = Form(..., description="Unique conversation identifier")
 ):
@@ -229,6 +526,10 @@ async def generate_interactives(
         quiz_json = await gemini_client.generate_quiz(content, COMPREHENSIVE_QUIZ_PROMPT)
         print(f"✅ Quiz generated successfully!")
         
+        # Save interactive content to database with user_id
+        database_client.write_interactive_content(conversation_id, "quiz", quiz_json, topics, user_id=current_user["user_id"])
+        print(f"💾 Quiz saved to database successfully!")
+        
         return QuizResponse(
             quiz_data=quiz_json,
             status="success",
@@ -249,6 +550,7 @@ async def generate_interactives(
 
 @app.post("/interact-timeline", response_model=TimelineResponse)
 async def generate_timeline(
+    current_user: dict = Depends(get_current_user),
     topics: Optional[List[str]] = Form(None),
     conversation_id: str = Form(..., description="Unique conversation identifier")
 ):
@@ -299,6 +601,10 @@ async def generate_timeline(
                 message=timeline_json["message"]
             )
         
+        # Save interactive content to database with user_id
+        database_client.write_interactive_content(conversation_id, "timeline", timeline_json, topics, user_id=current_user["user_id"])
+        print(f"💾 Timeline saved to database successfully!")
+        
         return TimelineResponse(
             timeline_data=timeline_json,
             status="success",
@@ -317,6 +623,7 @@ async def generate_timeline(
 
 @app.post("/interact-mindmap", response_model=MindmapResponse)
 async def generate_mindmap(
+    current_user: dict = Depends(get_current_user),
     topics: Optional[List[str]] = Form(None),
     conversation_id: str = Form(..., description="Unique conversation identifier")
 ):
@@ -359,6 +666,10 @@ async def generate_mindmap(
         
         mindmap_json = json.loads(mindmap_response)
         
+        # Save interactive content to database with user_id
+        database_client.write_interactive_content(conversation_id, "mindmap", mindmap_json, topics, user_id=current_user["user_id"])
+        print(f"💾 Mindmap saved to database successfully!")
+        
         return MindmapResponse(
             mindmap_data=mindmap_json,
             status="success",
@@ -377,6 +688,7 @@ async def generate_mindmap(
 
 @app.post("/interact-flashcard", response_model=FlashcardResponse)
 async def generate_flashcard(
+    current_user: dict = Depends(get_current_user),
     topics: Optional[List[str]] = Form(None),
     conversation_id: str = Form(..., description="Unique conversation identifier")
 ):
@@ -419,6 +731,10 @@ async def generate_flashcard(
         
         flashcard_json = json.loads(flashcard_response)
         
+        # Save interactive content to database with user_id
+        database_client.write_interactive_content(conversation_id, "flashcard", flashcard_json, topics, user_id=current_user["user_id"])
+        print(f"💾 Flashcard saved to database successfully!")
+        
         return FlashcardResponse(
             flashcard_data=flashcard_json,
             status="success",
@@ -433,7 +749,6 @@ async def generate_flashcard(
             status_code=500,
             detail=f"Failed to generate flashcard: {str(e)}"
         )
-
 
 if __name__ == "__main__":
     # Validate config

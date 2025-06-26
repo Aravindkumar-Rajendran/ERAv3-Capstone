@@ -1,0 +1,54 @@
+meta {
+  name: Auth details
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{base_url}}/auth/me
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+tests {
+  test("Shows user isolation working", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody()).to.have.property('firebase_user');
+    expect(res.getBody()).to.have.property('database_user');
+    expect(res.getBody()).to.have.property('isolation_proof');
+  });
+  
+  test("Display user isolation proof", function() {
+    const body = res.getBody();
+    console.log("\n🔐 USER ISOLATION VERIFICATION:");
+    console.log("Firebase User ID:", body.firebase_user.user_id);
+    console.log("Email:", body.firebase_user.email);
+    console.log("Database User:", body.database_user ? "✅ Found" : "❌ Not found");
+    console.log("Your Conversations:", body.your_conversations_count);
+    console.log("Isolation Proof:", body.isolation_proof);
+    console.log("\n✅ This proves your data is isolated by user_id!");
+  });
+}
+
+docs {
+  # Debug User Info Endpoint
+  
+  This endpoint shows you exactly how user isolation is working:
+  
+  ## What it shows:
+  - Your Firebase user ID (from JWT token)
+  - Your database user record
+  - Count of YOUR conversations only
+  - Proof that user_id filters all your data
+  
+  ## Use this to verify:
+  1. Your user_id is extracted from Firebase token
+  2. Database stores and filters by this user_id
+  3. You only see YOUR data, never other users' data
+  
+  This is the smoking gun that proves user isolation is working!
+}

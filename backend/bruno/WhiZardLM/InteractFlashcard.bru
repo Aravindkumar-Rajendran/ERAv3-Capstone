@@ -1,11 +1,11 @@
 meta {
-  name: Interact
+  name: InteractFlashcard
   type: http
-  seq: 5
+  seq: 9
 }
 
 post {
-  url: http://localhost:8000/interact
+  url: http://localhost:8000/interact-flashcard
   body: multipartForm
   auth: bearer
 }
@@ -16,6 +16,6 @@ auth:bearer {
 
 body:multipart-form {
   conversation_id: {{conversation_id}}
-  topics: Ductility in Metals Defined @contentType(Array)
-  topics: Metals Used in Cooking
-}
+  topics: Memory Techniques @contentType(Array)
+  topics: Study Methods
+} 

@@ -1,11 +1,11 @@
 meta {
-  name: Interact
+  name: InteractMindmap
   type: http
-  seq: 5
+  seq: 10
 }
 
 post {
-  url: http://localhost:8000/interact
+  url: http://localhost:8000/interact-mindmap
   body: multipartForm
   auth: bearer
 }
@@ -16,6 +16,6 @@ auth:bearer {
 
 body:multipart-form {
   conversation_id: {{conversation_id}}
-  topics: Ductility in Metals Defined @contentType(Array)
-  topics: Metals Used in Cooking
-}
+  topics: Knowledge Mapping @contentType(Array)
+  topics: Visual Learning
+} 

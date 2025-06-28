@@ -149,7 +149,7 @@ export const InteractivePage: React.FC = () => {
               { name: 'Mind Map', icon: '🗺️', color: '#9c27b0', id: 'mindmap' },
               { name: 'Flashcards', icon: '📚', color: '#f44336', id: 'flashcards' }
             ].map((option) => (
-              <button
+      <button
                 key={option.id}
                 onClick={() => handleOptionClick(option.id)}
                 style={{ background: `linear-gradient(45deg, ${option.color}, ${option.color}dd)`, color: 'white', border: 'none', borderRadius: '15px', padding: '20px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'transform 0.2s ease', textAlign: 'center' }}
@@ -158,10 +158,10 @@ export const InteractivePage: React.FC = () => {
               >
                 <div style={{ fontSize: '2rem', marginBottom: '10px' }}>{option.icon}</div>
                 {option.name}
-              </button>
+      </button>
             ))}
-          </div>
-        </div>
+      </div>
+      </div>
       )}
       {activeQuiz && (
         <QuizComponent quizData={activeQuiz} isOpen={isQuizOpen} onClose={handleQuizClose} onComplete={() => {}} />

@@ -193,7 +193,7 @@ export const WhizardPage = () => {
             <label style={{ display: 'block', marginBottom: '10px', color: '#4caf50' }}>Option 3: YouTube Video URL</label>
             <input type="url" value={youtubeUrl} onChange={(e) => { setYoutubeUrl(e.target.value); if (e.target.value.trim()) { setUserContent(''); setSelectedFile(null); } }} placeholder="Paste YouTube video URL here... (e.g., https://www.youtube.com/watch?v=...)" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '2px solid #16213e', borderRadius: '10px', padding: '15px', color: '#e0dede', fontSize: '16px', fontFamily: 'Arial, sans-serif' }} />
             {youtubeUrl && (<div style={{ marginTop: '10px', color: '#4caf50', fontSize: '14px' }}>✅ YouTube URL ready for processing</div>)}
-          </div>
+              </div>
           {/* Upload/Reset Buttons */}
           <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginTop: '30px' }}>
             <button onClick={handleUpload} disabled={isUploading} style={{ background: isUploading ? 'linear-gradient(45deg, #666, #888)' : 'linear-gradient(45deg, #4caf50, #66bb6a)', color: 'white', border: 'none', borderRadius: '25px', padding: '15px 40px', fontSize: '18px', fontWeight: 'bold', cursor: isUploading ? 'not-allowed' : 'pointer', transition: 'all 0.3s ease', boxShadow: '0 4px 20px rgba(76, 175, 80, 0.3)' }}>{isUploading ? '🔄 Uploading...' : 'Upload'}</button>
@@ -211,18 +211,18 @@ export const WhizardPage = () => {
                 <div style={{ width: 48, height: 48, borderRadius: '50%', background: msg.sender === 'user' ? '#4caf50' : '#16213e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, color: '#fff', margin: msg.sender === 'user' ? '0 0 0 16px' : '0 16px 0 0', border: msg.sender === 'user' ? '2px solid #4caf50' : '2px solid #16213e' }}>{msg.sender === 'user' ? '🧑' : '🧙‍♂️'}</div>
                 {/* Message bubble */}
                 <div style={{ background: msg.sender === 'user' ? 'linear-gradient(45deg, #4caf50, #66bb6a)' : 'linear-gradient(45deg, #16213e, #0f3460)', color: '#fff', borderRadius: '16px', padding: '16px 22px', maxWidth: '70%', fontSize: '1.1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', wordBreak: 'break-word', textAlign: 'left' }}>{msg.text}</div>
-              </div>
+        </div>
             ))}
             <div ref={chatEndRef} />
-          </div>
+            </div>
           {/* Input area */}
           <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', background: 'rgba(0,0,0,0.7)', borderBottomLeftRadius: '15px', borderBottomRightRadius: '15px', padding: '18px 30px', display: 'flex', alignItems: 'center', gap: '16px' }}>
             <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleInputKeyDown} placeholder="Type your question..." style={{ flex: 1, minHeight: 40, maxHeight: 120, borderRadius: 10, border: '2px solid #16213e', padding: '12px 16px', fontSize: 16, color: '#fff', background: 'rgba(0,0,0,0.2)', resize: 'vertical', outline: 'none' }} disabled={isChatLoading} />
             <button onClick={handleSend} disabled={isChatLoading || !input.trim()} style={{ background: isChatLoading || !input.trim() ? 'linear-gradient(45deg, #666, #888)' : 'linear-gradient(45deg, #4caf50, #66bb6a)', color: 'white', border: 'none', borderRadius: '10px', padding: '12px 28px', fontSize: '16px', fontWeight: 'bold', cursor: isChatLoading || !input.trim() ? 'not-allowed' : 'pointer', transition: 'all 0.3s ease', boxShadow: '0 2px 8px rgba(76, 175, 80, 0.15)' }}>{isChatLoading ? '...' : 'Send'}</button>
             <button onClick={handleGenerateMagic} style={{ background: 'linear-gradient(45deg, #ff9800, #ffb74d)', color: 'white', border: 'none', borderRadius: '10px', padding: '12px 28px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.3s ease', boxShadow: '0 2px 8px rgba(255, 152, 0, 0.15)' }}>✨ Generate Magic</button>
           </div>
-        </div>
-      )}
+          </div>
+        )}
       {/* Topic Selection Modal */}
       {showTopicModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -237,7 +237,7 @@ export const WhizardPage = () => {
             <button onClick={handleTopicModalProceed} disabled={selectedTopics.length === 0} style={{ background: selectedTopics.length === 0 ? 'linear-gradient(45deg, #666, #888)' : 'linear-gradient(45deg, #ff9800, #ffb74d)', color: 'white', border: 'none', borderRadius: 12, padding: '14px 32px', fontSize: 16, fontWeight: 'bold', cursor: selectedTopics.length === 0 ? 'not-allowed' : 'pointer', marginTop: 10, transition: 'all 0.2s' }}>Generate Magic</button>
             <button onClick={() => setShowTopicModal(false)} style={{ background: 'none', color: '#bbb', border: 'none', fontSize: 15, marginTop: 18, cursor: 'pointer', textDecoration: 'underline' }}>Cancel</button>
           </div>
-        </div>
+      </div>
       )}
     </div>
   );

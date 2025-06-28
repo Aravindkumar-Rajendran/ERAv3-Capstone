@@ -22,17 +22,29 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# frontend
 frontend/node_modules/
-backend/coding_agent/.env
-backend/.env
+frontend/build/*
+
 
 # backend
 .venv/
-__pycache__/
 **/__pycache__
+__pycache__/
+backend/coding_agent/.env
+backend/.env
 backend/chroma_db/*
 backend/chroma_db/chroma.sqlite3
 backend/sqlite_db/whizardlm.db
+
+# Python virtual environments
+backend/env/
+backend/venv/
+backend/.venv/
+
+# UV package manager
+backend/uv.lock
 
 # Firebase credentials and auth files (SECURITY)
 backend/firebase-service-account.json
@@ -42,11 +54,3 @@ backend/test_result.html
 # Local databases
 backend/sqlite_db/
 backend/chroma_db/
-
-# Python virtual environments
-backend/env/
-backend/venv/
-backend/.venv/
-
-# UV package manager
-backend/uv.lock

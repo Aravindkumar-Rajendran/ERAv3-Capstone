@@ -1,0 +1,49 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+You are assisting in a full-stack project using React (frontend) and Python (backend). Follow these best practices across both codebases:
+
+## 🔷 General
+- Write production-ready, maintainable, and readable code
+- Add comments where logic is non-obvious
+- Prefer composability and reuse over duplication
+- Follow proper file structure conventions
+- Use meaningful and consistent naming conventions
+- Avoid unnecessary abstraction
+
+## ⚛️ React (Frontend)
+- Use functional components and React hooks only
+- Structure components in atomic or feature-based folders (`components/`, `pages/`, `features/`, etc.)
+- Use Context API or libraries like Zustand or Redux only when necessary
+- Use Axios or Fetch for API calls and abstract them in a `services/` or `api/` directory
+- Keep UI and logic separated; prefer container/presentational component pattern
+- Use Tailwind CSS or component libraries like shadcn/ui (if applicable)
+- Use React Router for routing with protected routes for authenticated views
+- Handle loading, error, and empty states in all data-fetching components
+- Avoid deeply nested props (prefer context or composition)
+- Use `.env` for environment variables
+
+## 🐍 Python (Backend)
+- Use FastAPI (preferred) for building APIs
+- Structure backend into modular components: `routers/`, `models/`, `services/`, `schemas/`, `utils/`
+- Use Pydantic for request/response validation
+- Use async endpoints if I/O-bound (e.g., DB, network)
+- Follow RESTful API conventions
+- Store secrets and configurations in `.env` using `pydantic.BaseSettings`
+- Use dependency injection for database/session access (e.g., `Depends`)
+- Write clean error handling using exception handlers
+- Use logging, not print statements
+- Keep database models (e.g., SQLAlchemy) separated from API schemas
+- Token verification (like Firebase) should be middleware or dependency-injected logic
+
+## 🔐 Auth Integration
+- Firebase token should be verified on the backend
+- Frontend stores tokens in memory or HTTP-only cookies (not localStorage)
+- Protect routes on both frontend (React Router) and backend (token checks)
+
+## 🧪 Testing
+- Write minimal unit tests for key logic (use Jest for React, Pytest for Python)
+- Keep test files alongside the modules or in a separate `tests/` folder
+

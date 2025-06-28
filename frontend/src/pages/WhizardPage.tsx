@@ -29,7 +29,7 @@ export const WhizardPage = () => {
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [showTopics, setShowTopics] = useState(false);
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, token } = useAuth();
 
   const handleGenerateElements = async () => {
     if (!userContent.trim() && !selectedFile && !youtubeUrl.trim()) {
@@ -55,6 +55,9 @@ export const WhizardPage = () => {
       const uploadResponse = await fetch('http://localhost:8000/upload', {
         method: 'POST',
         body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       
       if (!uploadResponse.ok) {
@@ -66,11 +69,11 @@ export const WhizardPage = () => {
       setConversationId(convId);
       
       // Step 2: Get topics
-      const topicsFormData = new FormData();
-      topicsFormData.append('conversation_id', convId);
-      
       const topicsResponse = await fetch('http://localhost:8000/topics/' + convId, {
         method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       
       if (!topicsResponse.ok) {
@@ -122,6 +125,9 @@ export const WhizardPage = () => {
       const response = await fetch('http://localhost:8000/interact', {
         method: 'POST',
         body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       
       if (!response.ok) {
@@ -170,6 +176,9 @@ export const WhizardPage = () => {
       const response = await fetch('http://localhost:8000/interact-timeline', {
         method: 'POST',
         body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       
       if (!response.ok) {
@@ -217,6 +226,9 @@ export const WhizardPage = () => {
       const response = await fetch('http://localhost:8000/interact-mindmap', {
         method: 'POST',
         body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       
       if (!response.ok) {
@@ -258,6 +270,9 @@ export const WhizardPage = () => {
       const response = await fetch('http://localhost:8000/interact-flashcard', {
         method: 'POST',
         body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       
       if (!response.ok) {

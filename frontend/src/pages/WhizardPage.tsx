@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { QuizComponent } from '../components/QuizComponent';
 import { TimelineComponent } from '../components/timeline/TimelineComponent';
 import { MindmapComponent } from '../components/mindmap/MindmapComponent';
@@ -26,6 +28,8 @@ export const WhizardPage = () => {
   const [topics, setTopics] = useState<string[]>([]);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [showTopics, setShowTopics] = useState(false);
+  const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const handleGenerateElements = async () => {
     if (!userContent.trim() && !selectedFile && !youtubeUrl.trim()) {
@@ -531,13 +535,41 @@ export const WhizardPage = () => {
     setShowTopics(false);
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #2d2d2d 100%)',
       color: '#ffffff',
-      fontFamily: 'Arial, sans-serif'
+      fontFamily: 'Arial, sans-serif',
+      position: 'relative'
     }}>
+      {/* Logout Button */}
+      <button
+        onClick={handleLogout}
+        style={{
+          position: 'absolute',
+          top: 20,
+          right: 20,
+          background: 'linear-gradient(45deg, #f44336, #e57373)',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          padding: '10px 20px',
+          fontWeight: 'bold',
+          fontSize: '16px',
+          cursor: 'pointer',
+          boxShadow: '0 2px 8px rgba(244,67,54,0.15)',
+          zIndex: 10
+        }}
+      >
+        Logout
+      </button>
+
       {/* Header */}
       <div style={{
         background: 'rgba(0,0,0,0.5)',

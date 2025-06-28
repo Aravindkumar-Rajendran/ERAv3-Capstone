@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { QuizComponent } from '../components/QuizComponent';
 import { QuizData, MCQQuestion, TrueFalseQuestion, FillBlanksQuestion, MatchFollowingQuestion } from '../types/quiz';
 
 export const InteractivePage: React.FC = () => {
   const [activeQuiz, setActiveQuiz] = useState<QuizData | null>(null);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
+  const navigate = useNavigate();
+  const { logout } = useAuth();
 
   // Dummy quiz data for testing
   // const mcqQuizData: QuizData = {
@@ -284,13 +288,40 @@ export const InteractivePage: React.FC = () => {
     handleQuizClose();
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
   return (
     <div className="interactive-page" style={{ 
       padding: '40px 20px', 
       maxWidth: '1200px', 
       margin: '0 auto',
-      fontFamily: 'Arial, sans-serif'
+      fontFamily: 'Arial, sans-serif',
+      position: 'relative'
     }}>
+      {/* Logout Button */}
+      <button
+        onClick={handleLogout}
+        style={{
+          position: 'absolute',
+          top: 20,
+          right: 20,
+          background: 'linear-gradient(45deg, #f44336, #e57373)',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          padding: '10px 20px',
+          fontWeight: 'bold',
+          fontSize: '16px',
+          cursor: 'pointer',
+          boxShadow: '0 2px 8px rgba(244,67,54,0.15)',
+          zIndex: 10
+        }}
+      >
+        Logout
+      </button>
       <h1 style={{ textAlign: 'center', marginBottom: '40px', color: '#333' }}>
         Interactive Learning Components - Phase 1 Demo
       </h1>

@@ -2,7 +2,8 @@ import React from 'react';
 import { Provider } from 'react-redux';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, CssBaseline, createTheme } from '@mui/material';
-import Home from './pages/Home';
+import LoginPage from './pages/LoginPage';
+import Dashboard from './pages/Dashboard';
 import store from './store';
 
 const theme = createTheme();
@@ -14,7 +15,8 @@ function App() {
         <CssBaseline />
         <Router>
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<LoginPage />} />
+            <Route path="/dashboard" element={<Dashboard />} />
           </Routes>
         </Router>
       </ThemeProvider>

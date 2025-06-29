@@ -33,6 +33,7 @@ def create_table(conn, create_table_sql):
 def migrate_database(conn):
     """
     Add user_id columns to existing tables for user data isolation
+    Also add project_id to conversations if missing
     """
     cursor = conn.cursor()
     
@@ -64,6 +65,13 @@ def migrate_database(conn):
         cursor.execute("ALTER TABLE interactive_content ADD COLUMN user_id TEXT")
         print("Added user_id column to interactive_content table")
 
+    # Check if project_id column exists in conversations table
+    cursor.execute("PRAGMA table_info(conversations)")
+    conversations_columns = [col[1] for col in cursor.fetchall()]
+    if 'project_id' not in conversations_columns:
+        cursor.execute("ALTER TABLE conversations ADD COLUMN project_id TEXT")
+        print("Added project_id column to conversations table")
+
 def initialize_database(db_file):
     """
     Initialize the SQLite database and create necessary tables.
@@ -83,12 +91,13 @@ def initialize_database(db_file):
         """
         create_table(conn, create_topics_table_sql)
         
-        # Create conversations table - simplified for conversation metadata only
+        # Create conversations table - now with project_id
         create_conversations_table_sql = """
         CREATE TABLE IF NOT EXISTS conversations (
             conversation_id TEXT PRIMARY KEY,
             title TEXT,
             user_id TEXT,
+            project_id TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -136,6 +145,33 @@ def initialize_database(db_file):
         """
         create_table(conn, create_users_table_sql)
         
+        # Create projects table
+        create_projects_table_sql = """
+        CREATE TABLE IF NOT EXISTS projects (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_accessed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+        create_table(conn, create_projects_table_sql)
+        
+        # Create sources table
+        create_sources_table_sql = """
+        CREATE TABLE IF NOT EXISTS sources (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            project_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL,
+            content TEXT,
+            url TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+        create_table(conn, create_sources_table_sql)
+        
         # Run migration for existing databases
         migrate_database(conn)
         
@@ -182,32 +218,32 @@ class DatabaseClient:
         return None
 
     # NEW: Proper conversation management
-    def create_conversation(self, conversation_id, title=None, user_id=None):
+    def create_conversation(self, conversation_id, title=None, user_id=None, project_id=None):
         """Create a new conversation record"""
         conn = create_connection(self.db_file)
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT OR IGNORE INTO conversations (conversation_id, title, user_id)
-            VALUES (?, ?, ?);
+            INSERT OR IGNORE INTO conversations (conversation_id, title, user_id, project_id)
+            VALUES (?, ?, ?, ?);
             """,
-            (conversation_id, title or f"Conversation {conversation_id[:8]}", user_id)
+            (conversation_id, title or f"Conversation {conversation_id[:8]}", user_id, project_id)
         )
         conn.commit()
         conn.close()
 
     # NEW: Proper message storage
-    def write_chat_message(self, conversation_id, message_type, message_content, user_id=None):
+    def write_chat_message(self, conversation_id, message_type, message_content, user_id=None, project_id=None):
         """
         Write a single chat message to the database
         :param conversation_id: Conversation ID
         :param message_type: 'user' or 'assistant'
         :param message_content: The message content
         :param user_id: User ID for data isolation
+        :param project_id: Project ID for project isolation
         """
         # Ensure conversation exists
-        self.create_conversation(conversation_id, user_id=user_id)
-        
+        self.create_conversation(conversation_id, user_id=user_id, project_id=project_id)
         conn = create_connection(self.db_file)
         cursor = conn.cursor()
         cursor.execute(
@@ -217,17 +253,25 @@ class DatabaseClient:
             """,
             (conversation_id, message_type, message_content, user_id)
         )
-        
         # Update conversation's updated_at timestamp
-        cursor.execute(
-            """
-            UPDATE conversations 
-            SET updated_at = CURRENT_TIMESTAMP 
-            WHERE conversation_id = ? AND user_id = ?;
-            """,
-            (conversation_id, user_id)
-        )
-        
+        if user_id:
+            cursor.execute(
+                """
+                UPDATE conversations 
+                SET updated_at = CURRENT_TIMESTAMP 
+                WHERE conversation_id = ? AND user_id = ?;
+                """,
+                (conversation_id, user_id)
+            )
+        else:
+            cursor.execute(
+                """
+                UPDATE conversations 
+                SET updated_at = CURRENT_TIMESTAMP 
+                WHERE conversation_id = ?;
+                """,
+                (conversation_id,)
+            )
         conn.commit()
         conn.close()
 
@@ -456,22 +500,32 @@ class DatabaseClient:
             }
         return None
 
-    def get_user_conversations(self, user_id):
-        """Get all conversations for a user"""
+    def get_user_conversations(self, user_id, project_id=None):
+        """Get all conversations for a user and project"""
         conn = create_connection(self.db_file)
         cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT conversation_id, title, created_at, updated_at 
-            FROM conversations 
-            WHERE user_id = ?
-            ORDER BY updated_at DESC;
-            """,
-            (user_id,)
-        )
+        if project_id:
+            cursor.execute(
+                """
+                SELECT conversation_id, title, created_at, updated_at 
+                FROM conversations 
+                WHERE user_id = ? AND project_id = ?
+                ORDER BY updated_at DESC;
+                """,
+                (user_id, project_id)
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT conversation_id, title, created_at, updated_at 
+                FROM conversations 
+                WHERE user_id = ?
+                ORDER BY updated_at DESC;
+                """,
+                (user_id,)
+            )
         rows = cursor.fetchall()
         conn.close()
-        
         conversations = []
         for row in rows:
             conversations.append({
@@ -481,4 +535,94 @@ class DatabaseClient:
                 "updated_at": row[3]
             })
         return conversations
+
+    def create_project(self, project_id, user_id, name):
+        conn = create_connection(self.db_file)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO projects (id, user_id, name)
+            VALUES (?, ?, ?)
+            ON CONFLICT(id) DO NOTHING;
+            """,
+            (project_id, user_id, name)
+        )
+        conn.commit()
+        conn.close()
+
+    def list_projects(self, user_id):
+        conn = create_connection(self.db_file)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, name, created_at, last_accessed_at FROM projects WHERE user_id = ? ORDER BY last_accessed_at DESC;
+            """,
+            (user_id,)
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        projects = []
+        for row in rows:
+            projects.append({
+                "id": row[0],
+                "name": row[1],
+                "created_at": row[2],
+                "last_accessed_at": row[3]
+            })
+        return projects
+
+    def get_project(self, project_id, user_id):
+        conn = create_connection(self.db_file)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, name, created_at, last_accessed_at FROM projects WHERE id = ? AND user_id = ?;
+            """,
+            (project_id, user_id)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return {
+                "id": row[0],
+                "name": row[1],
+                "created_at": row[2],
+                "last_accessed_at": row[3]
+            }
+        return None
+
+    def write_source(self, source_id, user_id, project_id, name, type_, content=None, url=None):
+        conn = create_connection(self.db_file)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO sources (id, user_id, project_id, name, type, content, url)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET name=excluded.name, type=excluded.type, content=excluded.content, url=excluded.url;
+            """,
+            (source_id, user_id, project_id, name, type_, content, url)
+        )
+        conn.commit()
+        conn.close()
+
+    def list_sources(self, user_id, project_id):
+        conn = create_connection(self.db_file)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, name, type, created_at FROM sources WHERE user_id = ? AND project_id = ? ORDER BY created_at DESC;
+            """,
+            (user_id, project_id)
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        sources = []
+        for row in rows:
+            sources.append({
+                "id": row[0],
+                "name": row[1],
+                "type": row[2],
+                "created_at": row[3]
+            })
+        return sources
     

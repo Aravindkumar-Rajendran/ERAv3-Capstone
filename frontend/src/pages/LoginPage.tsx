@@ -9,14 +9,14 @@ export const LoginPage: React.FC = () => {
   const { signInWithGoogle, currentUser, loading: authLoading } = useAuth();
 
   if (authLoading) return <div>Loading...</div>;
-  if (currentUser) return <Navigate to="/whizard" replace />;
+  if (currentUser) return <Navigate to="/projects" replace />;
 
   const handleGoogleSignIn = async () => {
     try {
       setError('');
       setLoading(true);
       await signInWithGoogle();
-      navigate('/whizard');
+      navigate('/projects');
     } catch (error) {
       setError('Failed to sign in with Google');
       console.error('Google sign-in error:', error);

@@ -1,6 +1,6 @@
 from typing import Optional, List
 import uvicorn
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, Body, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -17,6 +17,8 @@ import uuid
 import time
 
 from dotenv import load_dotenv
+from pydantic import BaseModel
+import traceback
 
 # Load environment variables
 load_dotenv()
@@ -93,10 +95,13 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
         )
 
 @app.get("/auth/conversations")
-async def get_user_conversations(current_user: dict = Depends(get_current_user)):
-    """Get all conversations for the authenticated user"""
+async def get_user_conversations(
+    project_id: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user)
+):
+    """Get all conversations for the authenticated user and project (if provided)"""
     try:
-        conversations = database_client.get_user_conversations(current_user["user_id"])
+        conversations = database_client.get_user_conversations(current_user["user_id"], project_id)
         return {
             "status": "success",
             "conversations": conversations
@@ -246,97 +251,132 @@ async def upload(
     text: Optional[str] = Form(None),
     files: Optional[List[UploadFile]] = File(None),
     youtube_urls: Optional[List[str]] = Form(None),
+    project_id: str = Form(...),
 ):
     """
     Upload text, PDF files, or YouTube URLs to generate a quiz.
     The LLM will analyze the content and choose the best quiz subtype.
-
-    RAG Data Ingestion process
-        1. Extract content from file
-        2. Chunk content into smaller segments
-        3. Convert content to embeddings
-        4. Store embeddings in vector database (ChromaDB)
     """
-    
     try:
         # Extract content from text or file
         content = []
+        source_type = None
+        source_name = None
+        source_content = None
+        source_url = None
         if files:
             for file in files:
                 if file.content_type == "application/pdf":
-                    content.append(await extractor.extract_text_from_pdf(file))
+                    try:
+                        extracted = await extractor.extract_text_from_pdf(file)
+                        content.append(extracted)
+                        source_type = "pdf"
+                        source_name = file.filename
+                        source_content = None
+                        source_url = None
+                    except Exception as e:
+                        print(f"PDF extraction failed for {file.filename}: {e}")
+                        continue  # Skip this file, try others
                 else:
                     continue # Skip unsupported file types
-
         if text:
             content.append(text)
-
+            source_type = "text"
+            source_name = text[:40] + ("..." if len(text) > 40 else "")
+            source_content = text
+            source_url = None
         if youtube_urls:
             transcripts = await extractor.extract_transcripts_from_youtube(youtube_urls)
             content.extend(transcripts)
-
+            source_type = "youtube"
+            source_name = youtube_urls[0] if isinstance(youtube_urls, list) else youtube_urls
+            source_content = None
+            source_url = youtube_urls[0] if isinstance(youtube_urls, list) else youtube_urls
         if not content:
             raise HTTPException(
                 status_code=400, 
-                detail="No content provided. Please upload a PDF file, provide text, or YouTube URLs."
+                detail="No content provided. Please upload a PDF file with extractable text, provide text, or YouTube URLs."
             )
         # Flatten content list
         # chunk and create topics
         chunks, topics = await chunker.chunk_with_topics(content)
-
-        # store chunks and topics in vector database
         conversation_id = indexer.get_conversation_id()
-        indexer.create_index_with_topics(conversation_id, chunks, topics)
-        # save topics with conversation ID and user_id in sqlite
-        database_client.write_topics(conversation_id, topics, user_id=current_user["user_id"])
-
+        if chunks and topics:
+            indexer.create_index_with_topics(conversation_id, chunks, topics)
+            database_client.write_topics(conversation_id, topics, user_id=current_user["user_id"])
+        else:
+            print("No chunks/topics to index for this upload. Skipping ChromaDB indexing.")
+        # Store the source in the database
+        source_id = str(uuid.uuid4())
+        database_client.write_source(
+            source_id=source_id,
+            user_id=current_user["user_id"],
+            project_id=project_id,
+            name=source_name or f"Source {source_id[:8]}",
+            type_=source_type or "text",
+            content=source_content,
+            url=source_url
+        )
         return {
             "status": "success",
             "conversation_id": conversation_id,
+            "source_id": source_id,
+            "source_name": source_name or f"Source {source_id[:8]}",
             "message": "Content processed and indexed successfully",
         }
-
     except Exception as e:
+        print("UPLOAD ERROR:", traceback.format_exc())
         raise HTTPException(
             status_code=500,
             detail=f"Failed to process upload: {str(e)}"
         )
-                
+
+@app.get("/sources")
+async def get_sources(
+    project_id: str = Query(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    List all sources for the current user and project.
+    """
+    try:
+        sources = database_client.list_sources(current_user["user_id"], project_id)
+        return {"status": "success", "sources": sources}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch sources: {str(e)}"
+        )
 
 @app.post("/chat")
 async def chat(
     current_user: dict = Depends(get_current_user),
     user_input: str = Form(..., description="User query for chat"),
     conversation_id: str = Form(..., description="Unique conversation identifier"),
+    project_id: str = Form(..., description="Project identifier"),
 ):
     """
     Chat with the LLM using user input, context, and conversation history.
     The LLM will respond based on the provided input, context, and previous conversation.
     """
-    
     try:
         if not user_input or len(user_input.strip()) < 5:
             raise HTTPException(
                 status_code=400, 
                 detail="User input is too short. Please provide at least 5 characters."
             )
-        
         retriever = Retriever(conversation_id=conversation_id)
-
         # Retrieve context based on user input
         context = retriever.semantic_search(user_input)
         print(f"Retrieved context: {context}")
-
         # Retrieve conversation history for multi-turn dialogue
         conversation_history = database_client.read_chat_messages(conversation_id, user_id=current_user["user_id"])
         print(f"Retrieved conversation history: {len(conversation_history) if conversation_history else 0} messages")
-        
         # DEBUG: Print the exact structure of conversation history
         if conversation_history:
             print(f"DEBUG: First message structure: {conversation_history[0]}")
             for i, msg in enumerate(conversation_history):
                 print(f"DEBUG: Message {i}: type='{msg.get('type')}', content='{msg.get('content', '')[:50]}...'")
-
         # Generate response using Gemini with conversation history
         try:
             response = gemini_client.chat(user_input, context, conversation_history)
@@ -345,21 +385,17 @@ async def chat(
             print(f"DEBUG: Gemini error: {str(gemini_error)}")
             print(f"DEBUG: Gemini error type: {type(gemini_error).__name__}")
             raise gemini_error
-
-        # Save both user message and assistant response to database with user_id
-        database_client.write_chat_message(conversation_id, "user", user_input, user_id=current_user["user_id"])
-        database_client.write_chat_message(conversation_id, "assistant", response, user_id=current_user["user_id"])
-        
+        # Save both user message and assistant response to database with user_id and project_id
+        database_client.write_chat_message(conversation_id, "user", user_input, user_id=current_user["user_id"], project_id=project_id)
+        database_client.write_chat_message(conversation_id, "assistant", response, user_id=current_user["user_id"], project_id=project_id)
         return {
             "response": response,
             "status": "success",
             "message": "Chat response generated successfully"
         }
-        
     except Exception as e:
         print(f"DEBUG: Chat endpoint error: {str(e)}")
         print(f"DEBUG: Error type: {type(e).__name__}")
-        import traceback
         print(f"DEBUG: Full traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
@@ -367,37 +403,37 @@ async def chat(
         )
 
 
-@app.get("/topics/{conversation_id}")
+@app.get("/topics/{project_id}")
 async def get_topics(
-    conversation_id: str,
+    project_id: str,
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Retrieve topics from the database based on conversation ID.
-    This will return a list of topics associated with the conversation.
+    Retrieve topics for the latest conversation in the given project for the current user.
     """
-    
     try:
-        if not conversation_id:
-            raise HTTPException(
-                status_code=400, 
-                detail="Conversation ID is required."
-            )
-        
-        topics = database_client.read_topics(conversation_id, user_id=current_user["user_id"])
-        
+        # Get all conversations for this user and project, most recent first
+        conversations = database_client.get_user_conversations(current_user["user_id"], project_id)
+        print('User:', current_user["user_id"])
+        print('Project:', project_id)
+        print('Conversations:', conversations)
+        if not conversations:
+            print('No conversations found for this project.')
+            return {"topics": [], "conversation_id": None, "status": "success", "message": "No conversations found for this project."}
+        # Use the most recent conversation
+        latest_conversation_id = conversations[0]["conversation_id"]
+        print('Latest conversation ID:', latest_conversation_id)
+        topics = database_client.read_topics(latest_conversation_id, user_id=current_user["user_id"])
+        print('Topics:', topics)
         if not topics:
-            raise HTTPException(
-                status_code=404, 
-                detail="No topics found for the provided conversation ID."
-            )
-        
+            print('No topics found for the latest conversation in this project.')
+            return {"topics": [], "conversation_id": latest_conversation_id, "status": "success", "message": "No topics found for the latest conversation in this project."}
         return {
             "topics": topics,
+            "conversation_id": latest_conversation_id,
             "status": "success",
             "message": "Topics retrieved successfully"
         }
-        
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -541,7 +577,6 @@ async def generate_interactives(
     except Exception as e:
         print(f"❌ Error in generate_interactives: {str(e)}")
         print(f"❌ Error type: {type(e).__name__}")
-        import traceback
         print(f"❌ Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
@@ -615,6 +650,7 @@ async def generate_timeline(
         raise
     except Exception as e:
         print(f"❌ Error in generate_timeline: {str(e)}")
+        print(f"❌ Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate timeline: {str(e)}"
@@ -680,6 +716,7 @@ async def generate_mindmap(
         raise
     except Exception as e:
         print(f"❌ Error in generate_mindmap: {str(e)}")
+        print(f"❌ Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate mindmap: {str(e)}"
@@ -745,10 +782,62 @@ async def generate_flashcard(
         raise
     except Exception as e:
         print(f"❌ Error in generate_flashcard: {str(e)}")
+        print(f"❌ Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate flashcard: {str(e)}"
         )
+
+class ProjectCreateRequest(BaseModel):
+    name: str
+
+@app.post("/projects")
+async def create_project(request: ProjectCreateRequest, current_user: dict = Depends(get_current_user)):
+    """Create a new project for the current user"""
+    try:
+        project_id = str(uuid.uuid4())
+        database_client.create_project(project_id, current_user["user_id"], request.name)
+        return {"status": "success", "project": {"id": project_id, "name": request.name}}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create project: {str(e)}")
+
+@app.get("/projects")
+async def list_projects(current_user: dict = Depends(get_current_user)):
+    """List all projects for the current user"""
+    try:
+        projects = database_client.list_projects(current_user["user_id"])
+        return {"status": "success", "projects": projects}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list projects: {str(e)}")
+
+@app.get("/projects/{project_id}")
+async def get_project(project_id: str, current_user: dict = Depends(get_current_user)):
+    """Get details of a specific project for the current user"""
+    try:
+        project = database_client.get_project(project_id, current_user["user_id"])
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        return {"status": "success", "project": project}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get project: {str(e)}")
+
+@app.post("/conversations/new")
+async def create_new_conversation(
+    project_id: str = Form(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Create a new conversation for the current user and project.
+    """
+    try:
+        conversation_id = str(uuid.uuid4())
+        title = f"Conversation {conversation_id[:8]}"
+        database_client.create_conversation(conversation_id, title=title, user_id=current_user["user_id"], project_id=project_id)
+        return {"status": "success", "conversation_id": conversation_id, "title": title}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create new conversation: {str(e)}")
 
 if __name__ == "__main__":
     # Validate config

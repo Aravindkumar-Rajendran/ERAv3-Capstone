@@ -57,6 +57,7 @@ export const InteractivePage: React.FC = () => {
     }
     setIsGenerating(false);
   };
+
   const handleGenerateTimeline = async () => {
     if (selectedTopics.length === 0 || !conversationId) return;
     setIsGenerating(true);
@@ -134,6 +135,26 @@ export const InteractivePage: React.FC = () => {
   const handleLogout = async () => { await logout(); navigate('/login'); };
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #2d2d2d 100%)', color: '#fff', fontFamily: 'Arial, sans-serif', position: 'relative' }}>
+      <button
+        onClick={() => navigate(-1)}
+        style={{
+          position: 'absolute',
+          top: 20,
+          left: 20,
+          background: 'linear-gradient(45deg, #2196f3, #64b5f6)',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          padding: '10px 20px',
+          fontWeight: 'bold',
+          fontSize: '16px',
+          cursor: 'pointer',
+          boxShadow: '0 2px 8px rgba(33,150,243,0.15)',
+          zIndex: 10
+        }}
+      >
+        ← Back
+      </button>
       <button onClick={handleLogout} style={{ position: 'absolute', top: 20, right: 20, background: 'linear-gradient(45deg, #f44336, #e57373)', color: 'white', border: 'none', borderRadius: '8px', padding: '10px 20px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(244,67,54,0.15)', zIndex: 10 }}>Logout</button>
       <div style={{ background: 'rgba(0,0,0,0.5)', padding: '20px', borderBottom: '2px solid #4caf50' }}>
         <h1 style={{ margin: 0, textAlign: 'center', fontSize: '2.5rem', background: 'linear-gradient(45deg, #4caf50, #66bb6a, #81c784)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 0 20px rgba(76, 175, 80, 0.3)' }}>🧙‍♂️ WhizardLM Interactive</h1>

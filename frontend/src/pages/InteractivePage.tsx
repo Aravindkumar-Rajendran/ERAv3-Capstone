@@ -15,7 +15,7 @@ export const InteractivePage: React.FC = () => {
   const navigate = useNavigate();
   const { logout, token } = useAuth();
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showOptions, setShowOptions] = useState(true);
   const [activeQuiz, setActiveQuiz] = useState<QuizData | null>(null);
@@ -31,17 +31,17 @@ export const InteractivePage: React.FC = () => {
     if (location.state && location.state.selectedTopics) {
       setSelectedTopics(location.state.selectedTopics);
     }
-    if (location.state && location.state.conversationId) {
-      setConversationId(location.state.conversationId);
+    if (location.state && location.state.projectId) {
+      setProjectId(location.state.projectId);
     }
   }, [location.state]);
 
   const handleGenerateQuiz = async () => {
-    if (selectedTopics.length === 0 || !conversationId) return;
+    if (selectedTopics.length === 0 || !projectId) return;
     setIsGenerating(true);
     try {
       const formData = new FormData();
-      formData.append('conversation_id', conversationId);
+      formData.append('project_id', projectId);
       selectedTopics.forEach(topic => formData.append('topics', topic));
       const response = await fetch('http://localhost:8000/interact', {
         method: 'POST',
@@ -59,11 +59,11 @@ export const InteractivePage: React.FC = () => {
   };
 
   const handleGenerateTimeline = async () => {
-    if (selectedTopics.length === 0 || !conversationId) return;
+    if (selectedTopics.length === 0 || !projectId) return;
     setIsGenerating(true);
     try {
       const formData = new FormData();
-      formData.append('conversation_id', conversationId);
+      formData.append('project_id', projectId);
       selectedTopics.forEach(topic => formData.append('topics', topic));
       const response = await fetch('http://localhost:8000/interact-timeline', {
         method: 'POST',
@@ -80,11 +80,11 @@ export const InteractivePage: React.FC = () => {
     setIsGenerating(false);
   };
   const handleGenerateMindmap = async () => {
-    if (selectedTopics.length === 0 || !conversationId) return;
+    if (selectedTopics.length === 0 || !projectId) return;
     setIsGenerating(true);
     try {
       const formData = new FormData();
-      formData.append('conversation_id', conversationId);
+      formData.append('project_id', projectId);
       selectedTopics.forEach(topic => formData.append('topics', topic));
       const response = await fetch('http://localhost:8000/interact-mindmap', {
         method: 'POST',
@@ -101,11 +101,11 @@ export const InteractivePage: React.FC = () => {
     setIsGenerating(false);
   };
   const handleGenerateFlashcard = async () => {
-    if (selectedTopics.length === 0 || !conversationId) return;
+    if (selectedTopics.length === 0 || !projectId) return;
     setIsGenerating(true);
     try {
       const formData = new FormData();
-      formData.append('conversation_id', conversationId);
+      formData.append('project_id', projectId);
       selectedTopics.forEach(topic => formData.append('topics', topic));
       const response = await fetch('http://localhost:8000/interact-flashcard', {
         method: 'POST',

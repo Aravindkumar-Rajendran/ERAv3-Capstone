@@ -266,18 +266,15 @@ export const WhizardPage = () => {
 
   // Proceed to interactive page
   const handleTopicModalProceed = () => {
-    console.log('handleTopicModalProceed called with:', { selectedTopics, conversationId, conversations });
+    console.log('handleTopicModalProceed called with:', { selectedTopics, projectId });
     setShowTopicModal(false);
     if (selectedTopics.length > 0) {
-      // Use the current conversationId or get it from the latest conversation
-      const targetConversationId = conversationId || conversations[0]?.conversation_id;
-      console.log('Target conversation ID:', targetConversationId);
-      if (targetConversationId) {
-        console.log('Navigating to interactive page with:', { selectedTopics, conversationId: targetConversationId });
-        navigate('/interactive', { state: { selectedTopics, conversationId: targetConversationId } });
+      if (projectId) {
+        console.log('Navigating to interactive page with:', { selectedTopics, projectId });
+        navigate('/interactive', { state: { selectedTopics, projectId } });
       } else {
-        console.error('No conversation found');
-        alert('No conversation found. Please start a chat first.');
+        console.error('No project found');
+        alert('No project found. Please select a project first.');
       }
     } else {
       console.error('No topics selected');

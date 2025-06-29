@@ -79,14 +79,14 @@ def initialize_database(db_file):
     """
     conn = create_connection(db_file)
     if conn is not None:
-        # Create topics table
+        # Create topics table - MODIFIED: now uses project_id instead of conversation_id
         create_topics_table_sql = """
         CREATE TABLE IF NOT EXISTS topics (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            conversation_id TEXT NOT NULL,
+            project_id TEXT NOT NULL,
             topics_json TEXT NOT NULL,
             user_id TEXT,
-            UNIQUE(conversation_id)
+            UNIQUE(project_id)
         );
         """
         create_table(conn, create_topics_table_sql)
@@ -358,34 +358,74 @@ class DatabaseClient:
             }
         return None
 
-    def write_topics(self, conversation_id, topics_list, user_id=None):
+    # MODIFIED: Topics methods now work with project_id instead of conversation_id
+    def write_topics(self, project_id, topics_list, user_id=None):
+        """
+        Write topics for a project
+        :param project_id: Project ID
+        :param topics_list: List of topics
+        :param user_id: User ID for data isolation
+        """
         conn = create_connection(self.db_file)
         cursor = conn.cursor()
         topics_json = json.dumps(topics_list)
         cursor.execute(
             """
-            INSERT INTO topics (conversation_id, topics_json, user_id)
+            INSERT INTO topics (project_id, topics_json, user_id)
             VALUES (?, ?, ?)
-            ON CONFLICT(conversation_id) DO UPDATE SET topics_json=excluded.topics_json, user_id=excluded.user_id;
+            ON CONFLICT(project_id) DO UPDATE SET topics_json=excluded.topics_json, user_id=excluded.user_id;
             """,
-            (conversation_id, topics_json, user_id)
+            (project_id, topics_json, user_id)
         )
         conn.commit()
         conn.close()
 
     def read_topics(self, conversation_id, user_id=None):
+        """
+        DEPRECATED: Use read_project_topics instead
+        Read topics for a conversation (legacy method)
+        """
+        # Get project_id from conversation
         conn = create_connection(self.db_file)
         cursor = conn.cursor()
         
         if user_id:
             cursor.execute(
-                "SELECT topics_json FROM topics WHERE conversation_id = ? AND user_id = ?",
+                "SELECT project_id FROM conversations WHERE conversation_id = ? AND user_id = ?",
                 (conversation_id, user_id)
             )
         else:
             cursor.execute(
-                "SELECT topics_json FROM topics WHERE conversation_id = ?",
+                "SELECT project_id FROM conversations WHERE conversation_id = ?",
                 (conversation_id,)
+            )
+        
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row and row[0]:
+            return self.read_project_topics(row[0], user_id)
+        return None
+
+    def read_project_topics(self, project_id, user_id=None):
+        """
+        Read topics for a project
+        :param project_id: Project ID
+        :param user_id: User ID for data isolation
+        :return: List of topics or None
+        """
+        conn = create_connection(self.db_file)
+        cursor = conn.cursor()
+        
+        if user_id:
+            cursor.execute(
+                "SELECT topics_json FROM topics WHERE project_id = ? AND user_id = ?",
+                (project_id, user_id)
+            )
+        else:
+            cursor.execute(
+                "SELECT topics_json FROM topics WHERE project_id = ?",
+                (project_id,)
             )
         
         row = cursor.fetchone()

@@ -43,8 +43,9 @@ class Retriever:
     """
     Retrieves relevant chunks from ChromaDB by semantic search or by topic.
     """
-    def __init__(self, conversation_id, persist_directory: str = "./chroma_db"):
+    def __init__(self, conversation_id=None, project_id=None, persist_directory: str = "./chroma_db"):
         self.conversation_id = conversation_id
+        self.project_id = project_id
         self.client = chromadb.PersistentClient(path=persist_directory)
         self.collection_name = "whizardlm_chunks"
         self.collection = self.client.get_collection(self.collection_name)
@@ -54,11 +55,20 @@ class Retriever:
         Retrieve the most relevant chunks for a query using ChromaDB's query API.
         """
         print("all item in collections:", self.collection.get())
-        results = self.collection.query(
-            query_texts=[query],
-            n_results=n_results,
-            where={"conversation_id": self.conversation_id}
-        )
+        
+        # Use conversation_id if available, otherwise search all content
+        if self.conversation_id:
+            results = self.collection.query(
+                query_texts=[query],
+                n_results=n_results,
+                where={"conversation_id": self.conversation_id}
+            )
+        else:
+            results = self.collection.query(
+                query_texts=[query],
+                n_results=n_results
+            )
+        
         print(f"Search results: {results}")
         # Return the matched documents (chunks)
         return results.get("documents", [[]])[0]
@@ -68,13 +78,35 @@ class Retriever:
         Retrieve all chunks for the given topics for this conversation.
         """
         # Fetch all documents for the conversation in one call
-        results = self.collection.get(where={"conversation_id": self.conversation_id})
+        if self.conversation_id:
+            results = self.collection.get(where={"conversation_id": self.conversation_id})
+        else:
+            # If no conversation_id, get all documents (for project-based retrieval)
+            results = self.collection.get()
+        
         all_chunks = []
         metadatas = results.get("metadatas", [])
         documents = results.get("documents", [])
         for metadata, doc in zip(metadatas, documents):
             if metadata.get("topic") in topics:
                 all_chunks.append(doc)
+        return all_chunks
+
+    def retrieve_content_by_project(self, project_id, topics):
+        """
+        Retrieve content for a specific project by topics.
+        This method gets all content and filters by topics since ChromaDB doesn't store project_id.
+        """
+        # Get all documents and filter by topics
+        results = self.collection.get()
+        all_chunks = []
+        metadatas = results.get("metadatas", [])
+        documents = results.get("documents", [])
+        
+        for metadata, doc in zip(metadatas, documents):
+            if metadata.get("topic") in topics:
+                all_chunks.append(doc)
+        
         return all_chunks
 
 

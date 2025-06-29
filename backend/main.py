@@ -303,7 +303,7 @@ async def upload(
         conversation_id = indexer.get_conversation_id()
         if chunks and topics:
             indexer.create_index_with_topics(conversation_id, chunks, topics)
-            database_client.write_topics(conversation_id, topics, user_id=current_user["user_id"])
+            database_client.write_topics(project_id, topics, user_id=current_user["user_id"])
         else:
             print("No chunks/topics to index for this upload. Skipping ChromaDB indexing.")
         # Store the source in the database
@@ -409,28 +409,25 @@ async def get_topics(
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Retrieve topics for the latest conversation in the given project for the current user.
+    Retrieve topics for the given project for the current user.
     """
     try:
-        # Get all conversations for this user and project, most recent first
-        conversations = database_client.get_user_conversations(current_user["user_id"], project_id)
         print('User:', current_user["user_id"])
         print('Project:', project_id)
-        print('Conversations:', conversations)
-        if not conversations:
-            print('No conversations found for this project.')
-            return {"topics": [], "conversation_id": None, "status": "success", "message": "No conversations found for this project."}
-        # Use the most recent conversation
-        latest_conversation_id = conversations[0]["conversation_id"]
-        print('Latest conversation ID:', latest_conversation_id)
-        topics = database_client.read_topics(latest_conversation_id, user_id=current_user["user_id"])
+        
+        topics = database_client.read_project_topics(project_id, user_id=current_user["user_id"])
         print('Topics:', topics)
+        
         if not topics:
-            print('No topics found for the latest conversation in this project.')
-            return {"topics": [], "conversation_id": latest_conversation_id, "status": "success", "message": "No topics found for the latest conversation in this project."}
+            print('No topics found for this project.')
+            return {
+                "topics": [],
+                "status": "success", 
+                "message": "No topics found for this project."
+            }
+            
         return {
             "topics": topics,
-            "conversation_id": latest_conversation_id,
             "status": "success",
             "message": "Topics retrieved successfully"
         }
@@ -526,7 +523,7 @@ async def get_interactive_history(
 async def generate_interactives(
     current_user: dict = Depends(get_current_user),
     topics: List[str] = Form(None),
-    conversation_id: str = Form(..., description="Unique conversation identifier")
+    project_id: str = Form(..., description="Project identifier")
 ):
     """
     Generate a quiz based on text content or uploaded PDF file.
@@ -534,7 +531,7 @@ async def generate_interactives(
     """
     
     try:
-        print(f"📥 Received interaction request with topics: {topics}, conversation_id: {conversation_id}")
+        print(f"📥 Received interaction request with topics: {topics}, project_id: {project_id}")
         
         if not topics or len(topics) == 0:
             raise HTTPException(
@@ -542,13 +539,13 @@ async def generate_interactives(
                 detail="No topics provided. Please provide at least one topic."
             )
         
-        print(f"🔍 Creating retriever for conversation: {conversation_id}")
-        retriever = Retriever(conversation_id=conversation_id)
+        print(f"🔍 Creating retriever for project: {project_id}")
+        retriever = Retriever(project_id=project_id)
         
         print(f"Retrieving content for topics: {topics}")
 
-        # retrieve content based on topics
-        content = retriever.retrieve_content_with_topics(topics)
+        # retrieve content based on topics using project-based retrieval
+        content = retriever.retrieve_content_by_project(project_id, topics)
         print(f"📄 Retrieved content length: {len(content) if content else 0}")
         
         if not content:
@@ -561,6 +558,9 @@ async def generate_interactives(
         # Generate quiz using Gemini
         quiz_json = await gemini_client.generate_quiz(content, COMPREHENSIVE_QUIZ_PROMPT)
         print(f"✅ Quiz generated successfully!")
+        
+        # Generate a conversation_id for storing interactive content
+        conversation_id = str(uuid.uuid4())
         
         # Save interactive content to database with user_id
         database_client.write_interactive_content(conversation_id, "quiz", quiz_json, topics, user_id=current_user["user_id"])
@@ -587,11 +587,11 @@ async def generate_interactives(
 async def generate_timeline(
     current_user: dict = Depends(get_current_user),
     topics: Optional[List[str]] = Form(None),
-    conversation_id: str = Form(..., description="Unique conversation identifier")
+    project_id: str = Form(..., description="Project identifier")
 ):
     """Generate a timeline based on selected topics."""
     try:
-        print(f"📥 Received timeline request with topics: {topics}, conversation_id: {conversation_id}")
+        print(f"📥 Received timeline request with topics: {topics}, project_id: {project_id}")
         
         if not topics or len(topics) == 0:
             raise HTTPException(
@@ -599,8 +599,8 @@ async def generate_timeline(
                 detail="No topics provided. Please provide at least one topic."
             )
         
-        retriever = Retriever(conversation_id=conversation_id)
-        content = retriever.retrieve_content_with_topics(topics)
+        retriever = Retriever(project_id=project_id)
+        content = retriever.retrieve_content_by_project(project_id, topics)
         
         if not content:
             raise HTTPException(
@@ -636,6 +636,9 @@ async def generate_timeline(
                 message=timeline_json["message"]
             )
         
+        # Generate a conversation_id for storing interactive content
+        conversation_id = str(uuid.uuid4())
+        
         # Save interactive content to database with user_id
         database_client.write_interactive_content(conversation_id, "timeline", timeline_json, topics, user_id=current_user["user_id"])
         print(f"💾 Timeline saved to database successfully!")
@@ -661,11 +664,11 @@ async def generate_timeline(
 async def generate_mindmap(
     current_user: dict = Depends(get_current_user),
     topics: Optional[List[str]] = Form(None),
-    conversation_id: str = Form(..., description="Unique conversation identifier")
+    project_id: str = Form(..., description="Project identifier")
 ):
     """Generate a mindmap based on selected topics."""
     try:
-        print(f"📥 Received mindmap request with topics: {topics}, conversation_id: {conversation_id}")
+        print(f"📥 Received mindmap request with topics: {topics}, project_id: {project_id}")
         
         if not topics or len(topics) == 0:
             raise HTTPException(
@@ -673,8 +676,8 @@ async def generate_mindmap(
                 detail="No topics provided. Please provide at least one topic."
             )
         
-        retriever = Retriever(conversation_id=conversation_id)
-        content = retriever.retrieve_content_with_topics(topics)
+        retriever = Retriever(project_id=project_id)
+        content = retriever.retrieve_content_by_project(project_id, topics)
         
         if not content:
             raise HTTPException(
@@ -702,6 +705,9 @@ async def generate_mindmap(
         
         mindmap_json = json.loads(mindmap_response)
         
+        # Generate a conversation_id for storing interactive content
+        conversation_id = str(uuid.uuid4())
+        
         # Save interactive content to database with user_id
         database_client.write_interactive_content(conversation_id, "mindmap", mindmap_json, topics, user_id=current_user["user_id"])
         print(f"💾 Mindmap saved to database successfully!")
@@ -727,11 +733,11 @@ async def generate_mindmap(
 async def generate_flashcard(
     current_user: dict = Depends(get_current_user),
     topics: Optional[List[str]] = Form(None),
-    conversation_id: str = Form(..., description="Unique conversation identifier")
+    project_id: str = Form(..., description="Project identifier")
 ):
     """Generate flashcards based on selected topics."""
     try:
-        print(f"📥 Received flashcard request with topics: {topics}, conversation_id: {conversation_id}")
+        print(f"📥 Received flashcard request with topics: {topics}, project_id: {project_id}")
         
         if not topics or len(topics) == 0:
             raise HTTPException(
@@ -739,8 +745,8 @@ async def generate_flashcard(
                 detail="No topics provided. Please provide at least one topic."
             )
         
-        retriever = Retriever(conversation_id=conversation_id)
-        content = retriever.retrieve_content_with_topics(topics)
+        retriever = Retriever(project_id=project_id)
+        content = retriever.retrieve_content_by_project(project_id, topics)
         
         if not content:
             raise HTTPException(
@@ -767,6 +773,9 @@ async def generate_flashcard(
             flashcard_response = flashcard_response[start:end].strip()
         
         flashcard_json = json.loads(flashcard_response)
+        
+        # Generate a conversation_id for storing interactive content
+        conversation_id = str(uuid.uuid4())
         
         # Save interactive content to database with user_id
         database_client.write_interactive_content(conversation_id, "flashcard", flashcard_json, topics, user_id=current_user["user_id"])

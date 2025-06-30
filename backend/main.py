@@ -360,10 +360,10 @@ async def chat(
     The LLM will respond based on the provided input, context, and previous conversation.
     """
     try:
-        if not user_input or len(user_input.strip()) < 5:
+        if not user_input or len(user_input.strip()) < 2:
             raise HTTPException(
                 status_code=400, 
-                detail="User input is too short. Please provide at least 5 characters."
+                detail="User input is too short. Please provide at least 2 characters."
             )
         retriever = Retriever(conversation_id=conversation_id)
         # Retrieve context based on user input

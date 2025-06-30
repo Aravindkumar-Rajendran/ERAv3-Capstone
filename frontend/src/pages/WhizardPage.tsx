@@ -486,7 +486,7 @@ export const WhizardPage = () => {
         </div>
         {/* Generate Magic Button at the bottom right */}
         <div style={{ padding: 16, borderTop: '1px solid #222', background: 'rgba(30,30,30,0.98)', display: 'flex', justifyContent: 'flex-end' }}>
-          <button onClick={handleGenerateMagic} style={{ background: 'linear-gradient(45deg, #ff9800, #ffb74d)', color: 'white', border: 'none', borderRadius: '10px', padding: '12px 28px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.3s ease', boxShadow: '0 2px 8px rgba(255, 152, 0, 0.15)' }}>✨ Generate Magic</button>
+          <button onClick={handleGenerateMagic} style={{ background: 'linear-gradient(45deg, #ff9800, #ffb74d)', color: 'white', border: 'none', borderRadius: '10px', padding: '12px 28px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.3s ease', boxShadow: '0 2px 8px rgba(255, 152, 0, 0.15)' }}>✨ Interactive</button>
         </div>
       </div>
     </div>

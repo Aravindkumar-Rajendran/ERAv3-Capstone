@@ -70,18 +70,33 @@ export const FlashcardComponent = ({
   };
 
   return (
-    <div className="flashcard-overlay" style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 1000
-    }}>
+    <>
+      <style>
+        {`
+          @keyframes slideIn {
+            0% {
+              opacity: 0;
+              transform: translateY(-10px);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+        `}
+      </style>
+      <div className="flashcard-overlay" style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000
+      }}>
       <div className="flashcard-modal" style={{
         backgroundColor: flashcardData.theme.backgroundColor,
         borderRadius: '20px',
@@ -393,47 +408,27 @@ export const FlashcardComponent = ({
             ⬅ Previous
           </button>
 
-          {/* Hint Button - Repositioned here */}
+          {/* Hint Button - Always visible */}
           {currentCard.hint && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              {!showHint ? (
-                <button
-                  onClick={handleShowHint}
-                  style={{
-                    backgroundColor: '#ff9800',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px 15px',
-                    borderRadius: '15px',
-                    fontSize: '12px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    transition: 'transform 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                >
-                  💡 Hint
-                </button>
-              ) : (
-                <div style={{
-                  backgroundColor: 'rgba(255, 193, 7, 0.9)',
-                  border: '2px solid #ffc107',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                  color: '#000',
-                  maxWidth: '150px',
-                  textAlign: 'center',
-                  position: 'absolute',
-                  bottom: '70px',
-                  zIndex: 10
-                }}>
-                  💡 {currentCard.hint}
-                </div>
-              )}
-            </div>
+            <button
+              onClick={handleShowHint}
+              style={{
+                backgroundColor: showHint ? '#f57c00' : '#ff9800',
+                color: 'white',
+                border: 'none',
+                borderRadius: '15px',
+                padding: '12px 20px',
+                fontSize: '15px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                minWidth: '100px'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              💡 {showHint ? 'Hide Hint' : 'Hint'}
+            </button>
           )}
 
           <button
@@ -498,7 +493,47 @@ export const FlashcardComponent = ({
             </button>
           )}
         </div>
+
+        {/* Dedicated Hint Display Area - Below buttons */}
+        {currentCard.hint && showHint && (
+          <div style={{
+            marginTop: '25px',
+            padding: '20px',
+            backgroundColor: 'rgba(255, 193, 7, 0.15)',
+            border: '2px solid #ff9800',
+            borderRadius: '15px',
+            maxWidth: '600px',
+            margin: '25px auto 0 auto',
+            textAlign: 'center',
+            minHeight: '60px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            animation: 'slideIn 0.3s ease-out'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}>
+              <div style={{
+                fontSize: '24px'
+              }}>
+                💡
+              </div>
+              <div style={{
+                fontSize: '16px',
+                fontWeight: 'bold',
+                color: flashcardData.theme.textColor,
+                lineHeight: '1.4'
+              }}>
+                {currentCard.hint}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
+    </>
   );
 }; 

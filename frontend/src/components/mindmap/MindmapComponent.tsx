@@ -1,54 +1,118 @@
 import React, { useState } from 'react';
-import { MindmapComponentProps, MindmapNode } from '../../types/mindmap';
+import { MindmapComponentProps } from '../../types/mindmap';
 
-// Helper function to get all nodes from the mindmap structure
-const getAllNodes = (nodes: MindmapNode[]): MindmapNode[] => {
-  let allNodes: MindmapNode[] = [];
-  const traverse = (nodeList: MindmapNode[]) => {
-    nodeList.forEach(node => {
-      allNodes.push(node);
-      if (node.children) {
-        traverse(node.children);
-      }
-    });
-  };
-  traverse(nodes);
-  return allNodes;
-};
+interface ExtendedMindmapComponentProps extends MindmapComponentProps {
+  onRetry?: () => void;
+  isGenerating?: boolean;
+}
 
-export const MindmapComponent = ({ 
+const MindmapComponent: React.FC<ExtendedMindmapComponentProps> = ({ 
   mindmapData, 
   isOpen, 
-  onClose, 
-  onComplete 
-}: MindmapComponentProps) => {
-  const [selectedNodeId, setSelectedNodeId] = useState<string>('root');
+  onClose,
+  onRetry,
+  isGenerating = false
+}) => {
+  const [zoom, setZoom] = useState(1);
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['root']));
   
-  // Initialize with ALL nodes expanded for complete visibility
-  const getInitialExpandedNodes = () => {
-    const expanded = new Set<string>();
-    const allNodes = getAllNodes(mindmapData.nodes);
-    allNodes.forEach(node => {
-      expanded.add(node.id);
-    });
-    return expanded;
-  };
-  
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(getInitialExpandedNodes());
-  const [viewedNodes, setViewedNodes] = useState<Set<string>>(new Set(['root']));
-  const [isCompleted, setIsCompleted] = useState(false);
+  // Add state for drag-to-pan functionality
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
 
   if (!isOpen) return null;
 
-  const findNodeById = (nodes: MindmapNode[], id: string): MindmapNode | null => {
-    for (const node of nodes) {
-      if (node.id === id) return node;
-      if (node.children) {
-        const found = findNodeById(node.children, id);
-        if (found) return found;
-      }
+  // Reset expanded nodes when new mindmap data is received
+  React.useEffect(() => {
+    if (mindmapData) {
+      setExpandedNodes(new Set(['root']));
+      setZoom(1);
+      setPanOffset({ x: 0, y: 0 }); // Reset pan when new data arrives
     }
-    return null;
+  }, [mindmapData?.id]); // Only reset when mindmap ID changes
+
+  // Comprehensive data validation
+  if (!mindmapData || !mindmapData.levels || !Array.isArray(mindmapData.levels) || mindmapData.levels.length === 0) {
+    console.error('Invalid mindmap data structure:', mindmapData);
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          padding: '40px',
+          borderRadius: '20px',
+          textAlign: 'center',
+          maxWidth: '400px'
+        }}>
+          <h2 style={{ margin: '0 0 20px 0', color: '#333' }}>Error Loading Mindmap</h2>
+          <p style={{ margin: '0 0 20px 0', color: '#666' }}>
+            Unable to load mindmap data. Please try again.
+          </p>
+          <button 
+            onClick={onClose}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.defaultPrevented) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setZoom(prevZoom => Math.max(0.5, Math.min(2, prevZoom * delta)));
+  };
+
+  // Add mouse handlers for drag-to-pan
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 0) { // Only left mouse button
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+      e.preventDefault();
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging) {
+      const newX = e.clientX - dragStart.x;
+      const newY = e.clientY - dragStart.y;
+      setPanOffset({ x: newX, y: newY });
+      e.preventDefault();
+    }
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (isDragging) {
+      setIsDragging(false);
+      e.preventDefault();
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
   };
 
   const toggleNode = (nodeId: string) => {
@@ -61,413 +125,497 @@ export const MindmapComponent = ({
     setExpandedNodes(newExpanded);
   };
 
-  const selectNode = (nodeId: string) => {
-    setSelectedNodeId(nodeId);
-    setViewedNodes(prev => new Set([...Array.from(prev), nodeId]));
-  };
-
-  const handleComplete = () => {
-    setIsCompleted(true);
-    if (onComplete) {
-      onComplete();
+  // Prevent clicks during drag operations
+  const handleNodeClick = (nodeId: string, hasChildren: boolean) => {
+    if (!isDragging && hasChildren) {
+      toggleNode(nodeId);
     }
   };
 
-  const selectedNode = findNodeById(mindmapData.nodes, selectedNodeId);
-  const allNodes = getAllNodes(mindmapData.nodes);
-  const totalNodes = allNodes.length;
-  const exploredNodes = viewedNodes.size;
-
-  const renderNode = (node: MindmapNode, level: number = 0) => {
-    const isExpanded = expandedNodes.has(node.id);
-    const isSelected = selectedNodeId === node.id;
-    const hasChildren = node.children && node.children.length > 0;
-
-    return (
-      <div key={node.id} style={{ marginLeft: `${level * 30}px`, marginBottom: '10px' }}>
-        <div
-          onClick={() => selectNode(node.id)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            padding: '8px 12px',
-            backgroundColor: isSelected 
-              ? `${mindmapData.theme.primaryColor}40` 
-              : 'rgba(255,255,255,0.1)',
-            border: isSelected 
-              ? `2px solid ${mindmapData.theme.primaryColor}` 
-              : '1px solid rgba(255,255,255,0.2)',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            maxWidth: '300px'
-          }}
-        >
-          {hasChildren && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleNode(node.id);
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                marginRight: '8px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                color: mindmapData.theme.primaryColor
-              }}
-            >
-              {isExpanded ? '▼' : '▶'}
-            </button>
-          )}
-          <div style={{
-            fontSize: node.type === 'root' ? '16px' : '14px',
-            fontWeight: node.type === 'root' ? 'bold' : 'normal',
-            color: mindmapData.theme.textColor
-          }}>
-            {node.type === 'root' ? '🧠' : '💡'} {node.label}
-          </div>
-        </div>
-        
-        {hasChildren && isExpanded && (
-          <div style={{ marginTop: '5px' }}>
-            {node.children?.map(child => renderNode(child, level + 1))}
-          </div>
-        )}
-      </div>
-    );
+  const hasChildren = (nodeId: string) => {
+    try {
+      return mindmapData.levels.some(level => 
+        level.nodes && Array.isArray(level.nodes) && level.nodes.some(node => node.parent === nodeId)
+      );
+    } catch (error) {
+      console.error('Error checking children:', error);
+      return false;
+    }
   };
 
+  const getVisibleNodes = () => {
+    try {
+      const visibleNodes: Array<{ node: any, level: number, isLast: boolean }> = [];
+      
+      // Helper function to build tree recursively in proper order
+      const buildTreeOrder = (parentId: string | null, currentLevel: number) => {
+        // Find nodes for current level
+        const levelData = mindmapData.levels.find(l => l.level === currentLevel);
+        if (!levelData || !levelData.nodes) return;
+        
+        // Get children of this parent
+        const children = levelData.nodes.filter(node => {
+          if (currentLevel === 0) return !node.parent; // Root nodes
+          return node.parent === parentId;
+        });
+        
+        // Add each child and its descendants
+        children.forEach((child, index) => {
+          if (!child || !child.id || !child.label) return;
+          
+          const isLast = index === children.length - 1;
+          visibleNodes.push({ node: child, level: currentLevel, isLast });
+          
+          // If this node is expanded, add its children recursively
+          if (expandedNodes.has(child.id)) {
+            buildTreeOrder(child.id, currentLevel + 1);
+          }
+        });
+      };
+      
+      // Start building from root level
+      buildTreeOrder(null, 0);
+      
+      return visibleNodes;
+    } catch (error) {
+      console.error('Error building mindmap tree:', error);
+      return [];
+    }
+  };
+
+  // Safe theme handling with fallback
+  const theme = mindmapData.theme || {
+    backgroundColor: '#ffffff',
+    primaryColor: '#007bff',
+    textColor: '#333333',
+    fontFamily: 'Arial, sans-serif'
+  };
+  
+  // Content-based color system - analyzes the content to determine theme
+  const getContentBasedTheme = () => {
+    const title = (mindmapData.title || '').toLowerCase();
+    const content = JSON.stringify(mindmapData).toLowerCase();
+    
+    // Detect content type based on keywords
+    if (title.includes('history') || title.includes('independence') || title.includes('revolution') || 
+        content.includes('century') || content.includes('movement') || content.includes('empire') ||
+        /\b(1\d{3}|20\d{2})\b/.test(content)) { // Detects years like 1857, 2023
+      return {
+        primaryColor: '#9C27B0', // Purple for history
+        backgroundColor: '#F3E5F5',
+        textColor: '#4A148C',
+        levelColors: [
+          { bg: '#9C27B0', text: 'white', border: '#9C27B0' }, // Level 0
+          { bg: '#E1BEE7', text: '#4A148C', border: '#7B1FA2' }, // Level 1
+          { bg: '#F3E5F5', text: '#6A1B9A', border: '#8E24AA' }, // Level 2
+          { bg: '#FCE4EC', text: '#880E4F', border: '#AD1457' }, // Level 3
+          { bg: '#FFF0F5', text: '#C2185B', border: '#E91E63' }, // Level 4
+        ]
+      };
+    }
+    
+    if (title.includes('science') || title.includes('physics') || title.includes('chemistry') ||
+        content.includes('formula') || content.includes('equation') || content.includes('theory')) {
+      return {
+        primaryColor: '#2196F3', // Blue for science
+        backgroundColor: '#E3F2FD',
+        textColor: '#0D47A1',
+        levelColors: [
+          { bg: '#2196F3', text: 'white', border: '#2196F3' },
+          { bg: '#BBDEFB', text: '#0D47A1', border: '#1976D2' },
+          { bg: '#E3F2FD', text: '#1565C0', border: '#1E88E5' },
+          { bg: '#E8F4FD', text: '#0277BD', border: '#039BE5' },
+          { bg: '#F0F8FF', text: '#0288D1', border: '#03A9F4' },
+        ]
+      };
+    }
+    
+    if (title.includes('story') || title.includes('fable') || title.includes('tale') ||
+        content.includes('moral') || content.includes('character') || content.includes('plot')) {
+      return {
+        primaryColor: '#4CAF50', // Green for stories
+        backgroundColor: '#E8F5E8',
+        textColor: '#1B5E20',
+        levelColors: [
+          { bg: '#4CAF50', text: 'white', border: '#4CAF50' },
+          { bg: '#C8E6C9', text: '#1B5E20', border: '#388E3C' },
+          { bg: '#E8F5E8', text: '#2E7D32', border: '#43A047' },
+          { bg: '#F1F8E9', text: '#33691E', border: '#689F38' },
+          { bg: '#F9FBE7', text: '#827717', border: '#9E9D24' },
+        ]
+      };
+    }
+    
+    if (title.includes('math') || title.includes('calculus') || title.includes('algebra') ||
+        content.includes('equation') || content.includes('theorem') || content.includes('proof')) {
+      return {
+        primaryColor: '#009688', // Teal for math
+        backgroundColor: '#E0F2F1',
+        textColor: '#004D40',
+        levelColors: [
+          { bg: '#009688', text: 'white', border: '#009688' },
+          { bg: '#B2DFDB', text: '#004D40', border: '#00796B' },
+          { bg: '#E0F2F1', text: '#00695C', border: '#26A69A' },
+          { bg: '#E8F6F3', text: '#00838F', border: '#26C6DA' },
+          { bg: '#F0FDFA', text: '#0097A7', border: '#00ACC1' },
+        ]
+      };
+    }
+    
+    // Default theme if no specific content detected
+    return {
+      primaryColor: theme.primaryColor || '#007bff',
+      backgroundColor: theme.backgroundColor || '#ffffff',
+      textColor: theme.textColor || '#333333',
+      levelColors: [
+        { bg: theme.primaryColor || '#007bff', text: 'white', border: theme.primaryColor || '#007bff' },
+        { bg: '#e3f2fd', text: '#1565c0', border: '#1976d2' },
+        { bg: '#f3e5f5', text: '#7b1fa2', border: '#8e24aa' },
+        { bg: '#e8f5e8', text: '#2e7d32', border: '#388e3c' },
+        { bg: '#fff3e0', text: '#ef6c00', border: '#ff9800' },
+      ]
+    };
+  };
+  
+  const contentTheme = getContentBasedTheme();
+  
+  // Color system for different hierarchy levels using content-based theme
+  const getLevelColors = (level: number) => {
+    return contentTheme.levelColors[level] || contentTheme.levelColors[contentTheme.levelColors.length - 1];
+  };
+  
+  const visibleNodes = getVisibleNodes();
+
+  // Handle empty mindmap case
+  if (visibleNodes.length === 0) {
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          padding: '40px',
+          borderRadius: '20px',
+          textAlign: 'center',
+          maxWidth: '400px'
+        }}>
+          <h2 style={{ margin: '0 0 20px 0', color: '#333' }}>No Mindmap Data</h2>
+          <p style={{ margin: '0 0 20px 0', color: '#666' }}>
+            No mindmap nodes were found. Please try generating the mindmap again.
+          </p>
+          <button 
+            onClick={onClose}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="mindmap-overlay" style={{
+    <div style={{
       position: 'fixed',
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
       display: 'flex',
-      justifyContent: 'center',
       alignItems: 'center',
+      justifyContent: 'center',
       zIndex: 1000
-    }}>
-      <div className="mindmap-modal" style={{
-        backgroundColor: mindmapData.theme.backgroundColor,
+    }}
+    onClick={onClose}
+    >
+      <div style={{
+        backgroundColor: 'white',
         borderRadius: '20px',
-        padding: '30px',
+        width: '90%',
         maxWidth: '1000px',
-        maxHeight: '80vh',
-        overflow: 'auto',
-        position: 'relative',
-        width: '95%',
-        color: mindmapData.theme.textColor,
-        fontFamily: mindmapData.theme.fontFamily
+        height: '85%',
+        maxHeight: '800px',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
+      }}
+      onClick={(e) => e.stopPropagation()}
+      >
+      {/* Header */}
+      <div style={{
+        padding: '20px',
+        backgroundColor: theme.backgroundColor,
+        borderBottom: `2px solid ${theme.primaryColor}`,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
       }}>
-        <button 
-          className="close-button"
-          onClick={onClose}
-          style={{
-            position: 'absolute',
-            top: '15px',
-            right: '20px',
-            background: 'none',
-            border: 'none',
+        <div>
+          <h2 style={{
+            color: theme.textColor,
+            fontFamily: theme.fontFamily,
             fontSize: '24px',
-            cursor: 'pointer',
-            color: mindmapData.theme.textColor
-          }}
-        >
-          ×
-        </button>
-
-        {/* Completion Screen */}
-        {isCompleted && (
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
-            borderRadius: '20px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 1000
+            margin: 0
           }}>
-            <div style={{ textAlign: 'center', color: 'white' }}>
-              <div style={{ fontSize: '60px', marginBottom: '20px' }}>🧠</div>
-              <h2 style={{ fontSize: '32px', marginBottom: '15px', color: mindmapData.theme.primaryColor }}>
-                Mindmap Explored!
-              </h2>
-              <p style={{ fontSize: '18px', marginBottom: '10px' }}>
-                You've explored the knowledge structure!
-              </p>
-              <p style={{ fontSize: '16px', marginBottom: '30px', opacity: 0.8 }}>
-                All {totalNodes} nodes explored successfully!
-              </p>
-              <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-                <button
-                  onClick={() => {
-                    setIsCompleted(false);
-                    setSelectedNodeId('root');
-                    setExpandedNodes(getInitialExpandedNodes());
-                    setViewedNodes(new Set(['root']));
-                  }}
-                  style={{
-                    background: 'linear-gradient(45deg, #2196f3, #42a5f5)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '20px',
-                    padding: '15px 25px',
-                    fontSize: '16px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    transition: 'transform 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                >
-                  🔄 Reset
-                </button>
-                <button
-                  onClick={onClose}
-                  style={{
-                    background: `linear-gradient(45deg, ${mindmapData.theme.primaryColor}, #66bb6a)`,
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '20px',
-                    padding: '15px 25px',
-                    fontSize: '16px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    transition: 'transform 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                >
-                  🏠 Return Home
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <h2 style={{ 
-            margin: 0, 
-            fontSize: '28px', 
-            background: `linear-gradient(45deg, ${mindmapData.theme.primaryColor}, #66bb6a)`,
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            textShadow: '0 0 20px rgba(76, 175, 80, 0.3)'
-          }}>
-            🧠 {mindmapData.title}
+            {mindmapData.title || 'Mindmap'}
           </h2>
-          {mindmapData.description && (
-            <p style={{ margin: '10px 0', opacity: 0.8 }}>{mindmapData.description}</p>
-          )}
-          <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'center', gap: '30px' }}>
-            <div style={{ fontSize: '16px' }}>
-              Total Nodes: {totalNodes}
-            </div>
-            <div style={{ fontSize: '16px' }}>
-              Viewed: {exploredNodes}
-            </div>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div style={{
-          backgroundColor: 'rgba(255,255,255,0.2)',
-          borderRadius: '10px',
-          height: '8px',
-          marginBottom: '30px',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            background: `linear-gradient(45deg, ${mindmapData.theme.primaryColor}, #66bb6a)`,
-            height: '100%',
-            width: `${(exploredNodes / totalNodes) * 100}%`,
-            transition: 'width 0.3s ease'
-          }} />
-        </div>
-
-        {/* Main Content */}
-        <div style={{ display: 'flex', gap: '30px', minHeight: '400px' }}>
-          {/* Left Panel - Tree View */}
-          <div style={{
-            flex: 1,
-            backgroundColor: 'rgba(255,255,255,0.05)',
-            borderRadius: '15px',
-            padding: '20px',
-            border: `2px solid ${mindmapData.theme.primaryColor}40`,
-            maxHeight: '400px',
-            overflow: 'auto'
+          <p style={{
+            color: theme.textColor,
+            fontFamily: theme.fontFamily,
+            fontSize: '14px',
+            margin: '5px 0 0 0',
+            opacity: 0.7
           }}>
-            <h3 style={{ 
-              marginTop: 0, 
-              marginBottom: '20px',
-              color: mindmapData.theme.primaryColor,
-              fontSize: '18px'
-            }}>
-              📋 Knowledge Structure
-            </h3>
-            {mindmapData.nodes.map(node => renderNode(node))}
-          </div>
-
-          {/* Right Panel - Selected Node Details */}
-          <div style={{
-            flex: 1,
-            backgroundColor: 'rgba(255,255,255,0.05)',
-            borderRadius: '15px',
-            padding: '20px',
-            border: `2px solid ${mindmapData.theme.primaryColor}40`
-          }}>
-            <h3 style={{ 
-              marginTop: 0, 
-              marginBottom: '20px',
-              color: mindmapData.theme.primaryColor,
-              fontSize: '18px'
-            }}>
-              🔍 Node Details
-            </h3>
-            
-            {selectedNode && (
-              <div>
-                <div style={{
-                  fontSize: '20px',
-                  fontWeight: 'bold',
-                  marginBottom: '15px',
-                  color: mindmapData.theme.textColor
-                }}>
-                  {selectedNode.type === 'root' ? '🧠' : '💡'} {selectedNode.label}
-                </div>
-                
-                <div style={{
-                  backgroundColor: selectedNode.type === 'root' 
-                    ? `${mindmapData.theme.primaryColor}20` 
-                    : 'rgba(255,255,255,0.1)',
-                  padding: '10px',
-                  borderRadius: '8px',
-                  marginBottom: '15px'
-                }}>
-                  <strong>Type:</strong> {selectedNode.type === 'root' ? 'Root Concept' : 'Sub-concept'}
-                </div>
-
-                {/* Node Description */}
-                {selectedNode.description && (
-                  <div style={{
-                    backgroundColor: 'rgba(255,255,255,0.08)',
-                    border: `1px solid ${mindmapData.theme.primaryColor}40`,
-                    padding: '15px',
-                    borderRadius: '8px',
-                    marginBottom: '15px',
-                    lineHeight: '1.5'
-                  }}>
-                    <strong style={{ color: mindmapData.theme.primaryColor, marginBottom: '8px', display: 'block' }}>
-                      📝 Description:
-                    </strong>
-                    <div style={{ 
-                      fontSize: '15px', 
-                      color: mindmapData.theme.textColor,
-                      opacity: 0.9
-                    }}>
-                      {selectedNode.description}
-                    </div>
-                  </div>
-                )}
-
-                {selectedNode.children && selectedNode.children.length > 0 && (
-                  <div>
-                    <strong style={{ color: mindmapData.theme.primaryColor }}>
-                      Connected concepts:
-                    </strong>
-                    <ul style={{ marginTop: '10px', paddingLeft: '20px' }}>
-                      {selectedNode.children.map(child => (
-                        <li 
-                          key={child.id} 
-                          style={{ 
-                            marginBottom: '5px',
-                            cursor: 'pointer',
-                            color: mindmapData.theme.textColor,
-                            opacity: 0.8
-                          }}
-                          onClick={() => selectNode(child.id)}
-                        >
-                          💡 {child.label}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Show connections */}
-                {mindmapData.connections.some(conn => conn.from === selectedNodeId || conn.to === selectedNodeId) && (
-                  <div style={{ marginTop: '20px' }}>
-                    <strong style={{ color: mindmapData.theme.primaryColor }}>
-                      Relationships:
-                    </strong>
-                    <div style={{ marginTop: '10px' }}>
-                      {mindmapData.connections
-                        .filter(conn => conn.from === selectedNodeId || conn.to === selectedNodeId)
-                        .map((conn, index) => (
-                          <div key={index} style={{
-                            backgroundColor: 'rgba(255,255,255,0.1)',
-                            padding: '8px',
-                            borderRadius: '5px',
-                            marginBottom: '5px',
-                            fontSize: '14px'
-                          }}>
-                            {conn.from === selectedNodeId 
-                              ? `→ ${conn.label} → ${findNodeById(mindmapData.nodes, conn.to)?.label}`
-                              : `← ${conn.label} ← ${findNodeById(mindmapData.nodes, conn.from)?.label}`
-                            }
-                          </div>
-                        ))
-                      }
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+            Scroll to zoom • Drag to pan • Click nodes to expand/collapse
+          </p>
         </div>
-
-        {/* Navigation */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: '20px',
-          marginTop: '20px',
-          paddingTop: '20px',
-          borderTop: '1px solid rgba(255,255,255,0.1)'
-        }}>
-          <button
-            onClick={handleComplete}
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            onClick={() => {
+              console.log('Reset button clicked - resetting view'); 
+              setExpandedNodes(new Set(['root']));
+              setZoom(1);
+              setPanOffset({ x: 0, y: 0 });
+            }}
             style={{
-              background: `linear-gradient(45deg, ${mindmapData.theme.primaryColor}, #66bb6a)`,
+              padding: '12px 24px',
+              backgroundColor: '#17a2b8',
               color: 'white',
               border: 'none',
-              borderRadius: '15px',
-              padding: '12px 24px',
-              fontSize: '15px',
-              fontWeight: 'bold',
+              borderRadius: '20px',
               cursor: 'pointer',
-              transition: 'transform 0.2s ease',
-              minWidth: '110px'
+              fontSize: '16px',
+              fontFamily: theme.fontFamily,
+              fontWeight: 'bold'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
           >
-            ✅ Complete
+            🔄 Reset View
+          </button>
+          <button 
+            onClick={() => {
+              console.log('Close button clicked');
+              onClose();
+            }}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: contentTheme.primaryColor,
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              fontFamily: theme.fontFamily,
+              fontWeight: 'bold'
+            }}
+          >
+            Close
           </button>
         </div>
+      </div>
+
+      {/* Mindmap Tree Container */}
+      <div 
+        style={{
+          flex: 1,
+          overflow: 'hidden', // Change from 'auto' to 'hidden' to prevent scrollbars
+          backgroundColor: '#f8f9fa',
+          padding: '20px',
+          borderRadius: '0 0 20px 20px',
+          cursor: isDragging ? 'grabbing' : 'grab'
+        }}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+      >
+        <div style={{
+          transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
+          transformOrigin: '0 0', // Change from 'top left' to '0 0' for better pan behavior
+          transition: isDragging ? 'none' : 'transform 0.2s ease',
+          maxWidth: '800px',
+          margin: '0 auto',
+          userSelect: isDragging ? 'none' : 'auto' // Prevent text selection while dragging
+        }}>
+          
+          {visibleNodes.map(({ node, level, isLast }, index) => {
+            const isExpanded = expandedNodes.has(node.id);
+            const nodeHasChildren = hasChildren(node.id);
+            const indentLevel = level * 40;
+            
+            return (
+              <div key={`${node.id}-${level}`} style={{ position: 'relative' }}>
+                
+                {/* Tree Lines */}
+                {level > 0 && (
+                  <>
+                    {/* Horizontal line to node */}
+          <div style={{
+                      position: 'absolute',
+                      left: `${indentLevel - 20}px`,
+                      top: '25px',
+                      width: '20px',
+                      height: '2px',
+                      backgroundColor: theme.primaryColor,
+                      opacity: 0.6
+                    }} />
+                    
+                    {/* Vertical line (if not last child) */}
+                    {!isLast && (
+          <div style={{
+                        position: 'absolute',
+                        left: `${indentLevel - 20}px`,
+                        top: '25px',
+                        width: '2px',
+                        height: '60px',
+                        backgroundColor: theme.primaryColor,
+                        opacity: 0.6
+                      }} />
+                    )}
+                  </>
+                )}
+                
+                {/* Node */}
+                <div style={{
+                  marginLeft: `${indentLevel}px`,
+                  marginBottom: '15px',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}>
+                  
+                  {/* Expand/Collapse Button */}
+                  {nodeHasChildren && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleNodeClick(node.id, nodeHasChildren);
+                      }}
+                      style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        border: `2px solid ${theme.primaryColor}`,
+                        backgroundColor: isExpanded ? theme.primaryColor : 'white',
+                        color: isExpanded ? 'white' : theme.primaryColor,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        marginRight: '12px',
+                        flexShrink: 0
+                      }}
+                    >
+                      {isExpanded ? '−' : '+'}
+                    </button>
+                  )}
+                  
+                  {/* Empty space for nodes without children */}
+                  {!nodeHasChildren && level > 0 && (
+                  <div style={{
+                      width: '24px',
+                      height: '24px',
+                      marginRight: '12px',
+                      flexShrink: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <div style={{
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        backgroundColor: theme.primaryColor,
+                        opacity: 0.6
+                      }} />
+                  </div>
+                )}
+
+                  {/* Node Content */}
+                  <div
+                    style={{ 
+                      backgroundColor: getLevelColors(level).bg,
+                      color: getLevelColors(level).text,
+                      border: `2px solid ${getLevelColors(level).border}`,
+                      borderRadius: level === 0 ? '15px' : '10px',
+                      padding: level === 0 ? '15px 20px' : '10px 15px',
+                      cursor: nodeHasChildren ? 'pointer' : 'default',
+                      boxShadow: level === 0 ? '0 6px 16px rgba(0,0,0,0.15)' : '0 3px 8px rgba(0,0,0,0.1)',
+                      transition: 'all 0.3s ease',
+                      flex: 1,
+                      maxWidth: '500px'
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNodeClick(node.id, nodeHasChildren);
+                    }}
+                    onMouseEnter={(e) => {
+                      if (nodeHasChildren) {
+                        e.currentTarget.style.transform = 'translateX(5px)';
+                        e.currentTarget.style.boxShadow = level === 0 ? '0 8px 20px rgba(0,0,0,0.2)' : '0 5px 12px rgba(0,0,0,0.15)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (nodeHasChildren) {
+                        e.currentTarget.style.transform = 'translateX(0)';
+                        e.currentTarget.style.boxShadow = level === 0 ? '0 6px 16px rgba(0,0,0,0.15)' : '0 3px 8px rgba(0,0,0,0.1)';
+                      }
+                    }}
+                  >
+                    <h4 style={{
+                      color: getLevelColors(level).text,
+                      fontFamily: theme.fontFamily,
+                      fontSize: level === 0 ? '18px' : level === 1 ? '16px' : '14px',
+                      margin: 0,
+                      fontWeight: level <= 1 ? 'bold' : 'normal',
+                      lineHeight: '1.3'
+                    }}>
+                      {node.label}
+                    </h4>
+                    
+                    {/* Display description if it exists and is not empty */}
+                    {node.description && node.description.trim() !== '' && (
+                      <p style={{
+                        color: getLevelColors(level).text,
+                        fontFamily: theme.fontFamily,
+                        fontSize: level === 0 ? '13px' : level === 1 ? '12px' : '11px',
+                        margin: '8px 0 0 0',
+                        opacity: 0.8,
+                        lineHeight: '1.4',
+                        fontStyle: 'italic'
+                      }}>
+                        {node.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
       </div>
     </div>
   );
 }; 
+
+export default MindmapComponent; 

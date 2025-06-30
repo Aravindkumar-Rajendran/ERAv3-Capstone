@@ -8,15 +8,14 @@ export interface Theme {
 export interface MindmapNode {
   id: string;
   label: string;
-  type: 'root' | 'concept';
-  description?: string;
-  children?: MindmapNode[];
+  description: string;
+  parent: string | null;
 }
 
-export interface MindmapConnection {
-  from: string;
-  to: string;
-  label: string;
+export interface MindmapLevel {
+  level: number;
+  title: string;
+  nodes: MindmapNode[];
 }
 
 export interface MindmapData {
@@ -24,8 +23,7 @@ export interface MindmapData {
   title: string;
   description: string;
   theme: Theme;
-  nodes: MindmapNode[];
-  connections: MindmapConnection[];
+  levels: MindmapLevel[];
   createdAt?: string;
   lastModified?: string;
 }

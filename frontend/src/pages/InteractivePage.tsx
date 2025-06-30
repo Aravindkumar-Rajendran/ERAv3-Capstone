@@ -39,6 +39,10 @@ export const InteractivePage: React.FC = () => {
   // Interactive history state
   const [interactiveHistory, setInteractiveHistory] = useState<InteractiveHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  // Topic selection state
+  const [showTopicModal, setShowTopicModal] = useState(false);
+  const [topics, setTopics] = useState<string[]>([]);
+  const [selectedInteractiveType, setSelectedInteractiveType] = useState<string | null>(null);
 
   useEffect(() => {
     if (location.state && location.state.selectedTopics) {
@@ -67,6 +71,47 @@ export const InteractivePage: React.FC = () => {
     };
     fetchHistory();
   }, [projectId, token, activeQuiz, activeTimeline, activeMindmap, activeFlashcard]);
+
+  // Topic selection handlers
+  const handleTopicSelect = (topic: string) => {
+    setSelectedTopics((prev) =>
+      prev.includes(topic)
+        ? prev.filter((t) => t !== topic)
+        : [...prev, topic]
+    );
+  };
+
+  const handleTopicModalProceed = async () => {
+    if (selectedTopics.length === 0) {
+      alert('Please select at least one topic.');
+      return;
+    }
+    setShowTopicModal(false);
+    
+    // Generate the selected interactive type with selected topics
+    if (selectedInteractiveType === 'quiz') await handleGenerateQuiz();
+    else if (selectedInteractiveType === 'timeline') await handleGenerateTimeline();
+    else if (selectedInteractiveType === 'mindmap') await handleGenerateMindmap();
+    else if (selectedInteractiveType === 'flashcards') await handleGenerateFlashcard();
+  };
+
+  const fetchTopics = async () => {
+    if (!projectId || !token) return;
+    try {
+      const response = await fetch(`http://localhost:8000/topics/${projectId}`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to fetch topics');
+      const data = await response.json();
+      setTopics(data.topics || []);
+      if (!data.topics || data.topics.length === 0) {
+        alert('No topics found for this project. Please upload content or try another project.');
+      }
+    } catch (e) {
+      alert('Failed to fetch topics for this project.');
+    }
+  };
 
   // Helper to format date (no date-fns)
   function formatDate(iso: string) {
@@ -204,11 +249,10 @@ export const InteractivePage: React.FC = () => {
     setIsGenerating(false);
   };
   const handleOptionClick = async (option: string) => {
-    if (option === 'quiz') await handleGenerateQuiz();
-    else if (option === 'timeline') await handleGenerateTimeline();
-    else if (option === 'mindmap') await handleGenerateMindmap();
-    else if (option === 'flashcards') await handleGenerateFlashcard();
-    else alert(`${option} is coming soon!`);
+    setSelectedInteractiveType(option);
+    setSelectedTopics([]); // Reset selected topics
+    await fetchTopics();
+    setShowTopicModal(true);
   };
   const handleQuizClose = () => { setIsQuizOpen(false); setActiveQuiz(null); };
   const handleTimelineClose = () => { setIsTimelineOpen(false); setActiveTimeline(null); };
@@ -369,6 +413,28 @@ export const InteractivePage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Topic Selection Modal */}
+      {showTopicModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#222', borderRadius: '18px', padding: '40px 30px', minWidth: 340, maxWidth: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.25)', color: '#fff', textAlign: 'center', position: 'relative' }}>
+            <h2 style={{ color: '#ff9800', marginBottom: 18 }}>🎯 Select Topics</h2>
+            <p style={{ color: '#bbb', marginBottom: 24 }}>Choose one or more topics to generate {selectedInteractiveType}:</p>
+            {topics.length === 0 ? (
+              <div style={{ color: '#ff9800', marginBottom: 24 }}>No topics found for this project.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+                {topics.map((topic, idx) => (
+                  <button key={idx} onClick={() => handleTopicSelect(topic)} style={{ background: selectedTopics.includes(topic) ? 'linear-gradient(45deg, #4caf50, #66bb6a)' : 'rgba(255,255,255,0.08)', color: selectedTopics.includes(topic) ? 'white' : '#e0dede', border: selectedTopics.includes(topic) ? '2px solid #4caf50' : '2px solid #16213e', borderRadius: 10, padding: '12px', fontSize: 15, cursor: 'pointer', transition: 'all 0.2s' }}>{selectedTopics.includes(topic) && '✅ '}{topic}</button>
+                ))}
+              </div>
+            )}
+            <button onClick={handleTopicModalProceed} disabled={selectedTopics.length === 0} style={{ background: selectedTopics.length === 0 ? 'linear-gradient(45deg, #666, #888)' : 'linear-gradient(45deg, #ff9800, #ffb74d)', color: 'white', border: 'none', borderRadius: 12, padding: '14px 32px', fontSize: 16, fontWeight: 'bold', cursor: selectedTopics.length === 0 ? 'not-allowed' : 'pointer', marginTop: 10, transition: 'all 0.2s' }}>Generate {selectedInteractiveType}</button>
+            <button onClick={() => setShowTopicModal(false)} style={{ background: 'none', color: '#bbb', border: 'none', fontSize: 15, marginTop: 18, cursor: 'pointer', textDecoration: 'underline' }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }`}</style>
     </div>
   );

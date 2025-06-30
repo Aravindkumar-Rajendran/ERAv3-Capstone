@@ -232,27 +232,7 @@ export const WhizardPage = () => {
   // Handler to open topic selection modal (moved to sidebar)
   const handleGenerateMagic = async () => {
     if (!projectId) return;
-    try {
-      const response = await fetch(`http://localhost:8000/topics/${projectId}`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!response.ok) throw new Error('Failed to fetch topics');
-      const data = await response.json();
-      console.log('Fetched topics:', data.topics);
-      setTopics(data.topics || []);
-      // Set the conversation ID from the topics response if available
-      if (data.conversation_id) {
-        setConversationId(data.conversation_id);
-      }
-      setShowTopicModal(true);
-      setSelectedTopics([]);
-      if (!data.topics || data.topics.length === 0) {
-        alert('No topics found for this project. Please upload content or try another project.');
-      }
-    } catch (e) {
-      alert('Failed to fetch topics for this project.');
-    }
+    navigate('/interactive', { state: { projectId } });
   };
 
   // Topic selection
@@ -266,19 +246,9 @@ export const WhizardPage = () => {
 
   // Proceed to interactive page
   const handleTopicModalProceed = () => {
-    console.log('handleTopicModalProceed called with:', { selectedTopics, projectId });
     setShowTopicModal(false);
-    if (selectedTopics.length > 0) {
-      if (projectId) {
-        console.log('Navigating to interactive page with:', { selectedTopics, projectId });
-        navigate('/interactive', { state: { selectedTopics, projectId } });
-      } else {
-        console.error('No project found');
-        alert('No project found. Please select a project first.');
-      }
-    } else {
-      console.error('No topics selected');
-      alert('Please select at least one topic.');
+    if (selectedTopics.length > 0 && projectId) {
+      navigate('/interactive', { state: { selectedTopics, projectId } });
     }
   };
 

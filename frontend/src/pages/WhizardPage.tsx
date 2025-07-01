@@ -248,9 +248,44 @@ export const WhizardPage = () => {
     }
   };
 
+  // Handler for starting a new chat
+  const handleNewChat = async () => {
+    if (!projectId) return;
+    if (sources.length === 0) {
+      setNotification('Please add at least one source before starting a new chat.');
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+    try {
+      const formData = new FormData();
+      formData.append('project_id', projectId);
+      const response = await fetch('http://localhost:8000/conversations/new', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to start new chat');
+      const uploadResult = await response.json();
+      setConversationId(uploadResult.conversation_id);
+      setMessages([{ sender: 'whizard', text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.' }]);
+      setTopics([]);
+      setShowTopics(false);
+      setInput('');
+      // Refresh chat history sidebar
+      await fetchConversations();
+    } catch (e) {
+      alert('Failed to start a new chat.');
+    }
+  };
+
   // Handler to open topic selection modal (moved to sidebar)
   const handleGenerateMagic = async () => {
     if (!projectId) return;
+    if (sources.length === 0) {
+      setNotification('Please add at least one source to create interactives.');
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
     navigate('/interactive', { state: { projectId } });
   };
 
@@ -283,31 +318,6 @@ export const WhizardPage = () => {
 
   const handleBack = () => {
     navigate('/projects');
-  };
-
-  // Handler for starting a new chat
-  const handleNewChat = async () => {
-    if (!projectId) return;
-    try {
-      const formData = new FormData();
-      formData.append('project_id', projectId);
-      const response = await fetch('http://localhost:8000/conversations/new', {
-        method: 'POST',
-        body: formData,
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!response.ok) throw new Error('Failed to start new chat');
-      const uploadResult = await response.json();
-      setConversationId(uploadResult.conversation_id);
-      setMessages([{ sender: 'whizard', text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.' }]);
-      setTopics([]);
-      setShowTopics(false);
-      setInput('');
-      // Refresh chat history sidebar
-      await fetchConversations();
-    } catch (e) {
-      alert('Failed to start a new chat.');
-    }
   };
 
   // Upload form (reusable for inline and modal)

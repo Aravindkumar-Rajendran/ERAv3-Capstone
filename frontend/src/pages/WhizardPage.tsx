@@ -35,6 +35,9 @@ export const WhizardPage = () => {
   // New: Conversations state for chat history sidebar
   const [conversations, setConversations] = useState<any[]>([]);
 
+  // Notification state
+  const [notification, setNotification] = useState<string | null>(null);
+
   // Fetch sources for this project/user
   const fetchSources = async () => {
     if (projectId && token) {
@@ -138,6 +141,18 @@ export const WhizardPage = () => {
 
   // Upload handler (used in both inline and modal)
   const handleUpload = async () => {
+    // File size check (PDF)
+    if (selectedFile && selectedFile.size > 5 * 1024 * 1024) {
+      setNotification('PDF file size must be 5 MB or less.');
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+    // Text length check
+    if (userContent && userContent.length > 5000) {
+      setNotification('Text input must be 5000 characters or less.');
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
     if (!userContent.trim() && !selectedFile && !youtubeUrl.trim()) {
       alert('Please enter some content, upload a file, or provide a YouTube URL first!');
       return;
@@ -233,9 +248,44 @@ export const WhizardPage = () => {
     }
   };
 
+  // Handler for starting a new chat
+  const handleNewChat = async () => {
+    if (!projectId) return;
+    if (sources.length === 0) {
+      setNotification('Please add at least one source before starting a new chat.');
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+    try {
+      const formData = new FormData();
+      formData.append('project_id', projectId);
+      const response = await fetch('http://localhost:8000/conversations/new', {
+        method: 'POST',
+        body: formData,
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to start new chat');
+      const uploadResult = await response.json();
+      setConversationId(uploadResult.conversation_id);
+      setMessages([{ sender: 'whizard', text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.' }]);
+      setTopics([]);
+      setShowTopics(false);
+      setInput('');
+      // Refresh chat history sidebar
+      await fetchConversations();
+    } catch (e) {
+      alert('Failed to start a new chat.');
+    }
+  };
+
   // Handler to open topic selection modal (moved to sidebar)
   const handleGenerateMagic = async () => {
     if (!projectId) return;
+    if (sources.length === 0) {
+      setNotification('Please add at least one source to create interactives.');
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
     navigate('/interactive', { state: { projectId } });
   };
 
@@ -270,30 +320,6 @@ export const WhizardPage = () => {
     navigate('/projects');
   };
 
-  // Handler for starting a new chat
-  const handleNewChat = async () => {
-    if (!projectId) return;
-    try {
-      const formData = new FormData();
-      formData.append('text', 'New chat started');
-      formData.append('project_id', projectId);
-      const uploadResponse = await fetch('http://localhost:8000/upload', {
-        method: 'POST',
-        body: formData,
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!uploadResponse.ok) throw new Error('Failed to start new chat');
-      const uploadResult = await uploadResponse.json();
-      setConversationId(uploadResult.conversation_id);
-      setMessages([{ sender: 'whizard', text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.' }]);
-      setTopics([]);
-      setShowTopics(false);
-      setInput('');
-    } catch (e) {
-      alert('Failed to start a new chat.');
-    }
-  };
-
   // Upload form (reusable for inline and modal)
   const UploadForm = (
     <div style={{ width: '100%', maxWidth: 700, margin: '0 auto', background: 'rgba(255,255,255,0.05)', borderRadius: '15px', padding: '30px', border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -301,15 +327,22 @@ export const WhizardPage = () => {
       {/* Text Input */}
       <div style={{ marginBottom: '20px' }}>
         <label style={{ display: 'block', marginBottom: '10px', color: '#4caf50' }}>Option 1: Paste Text Content</label>
-        <textarea value={userContent} onChange={(e) => { setUserContent(e.target.value); if (e.target.value.trim()) { setSelectedFile(null); setYoutubeUrl(''); } }} placeholder="Paste your text content here... (articles, documents, notes, etc.)" style={{ width: '100%', height: '150px', background: 'rgba(0,0,0,0.3)', border: '2px solid #16213e', borderRadius: '10px', padding: '15px', color: '#e0dede', fontSize: '16px', fontFamily: 'Arial, sans-serif', resize: 'vertical' }} />
+        <textarea value={userContent} onChange={(e) => {
+          if (e.target.value.length > 5000) {
+            setNotification('Text input must be 5000 characters or less.');
+            setTimeout(() => setNotification(null), 3000);
+            return;
+          }
+          setUserContent(e.target.value); if (e.target.value.trim()) { setSelectedFile(null); setYoutubeUrl(''); } }} placeholder="Paste your text content here... (articles, documents, notes, etc.)" style={{ width: '100%', height: '150px', background: 'rgba(0,0,0,0.3)', border: '2px solid #16213e', borderRadius: '10px', padding: '15px', color: '#e0dede', fontSize: '16px', fontFamily: 'Arial, sans-serif', resize: 'vertical' }} />
+        <div style={{ color: userContent.length > 5000 ? 'red' : '#888', fontSize: 14, marginTop: 4 }}>{userContent.length}/5000 characters</div>
       </div>
       {/* OR Separator */}
       <div style={{ textAlign: 'center', margin: '20px 0', color: '#888' }}><span style={{ background: 'rgba(255,255,255,0.05)', padding: '5px 15px', borderRadius: '15px' }}>OR</span></div>
       {/* File Upload */}
       <div>
         <label style={{ display: 'block', marginBottom: '10px', color: '#4caf50' }}>Option 2: Upload File (PDF, TXT)</label>
-        <div style={{ border: '2px dashed #16213e', borderRadius: '10px', padding: '20px', textAlign: 'center', background: 'rgba(0,0,0,0.2)', cursor: 'pointer', transition: 'all 0.3s ease' }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const files = e.dataTransfer.files; if (files.length > 0) { setSelectedFile(files[0]); setUserContent(''); setYoutubeUrl(''); } }}>
-          <input type="file" id="file-upload" accept=".pdf,.txt" onChange={(e) => { if (e.target.files && e.target.files[0]) { setSelectedFile(e.target.files[0]); setUserContent(''); setYoutubeUrl(''); } }} style={{ display: 'none' }} />
+        <div style={{ border: '2px dashed #16213e', borderRadius: '10px', padding: '20px', textAlign: 'center', background: 'rgba(0,0,0,0.2)', cursor: 'pointer', transition: 'all 0.3s ease' }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const files = e.dataTransfer.files; if (files.length > 0) { if (files[0].size > 5 * 1024 * 1024) { setNotification('PDF file size must be 5 MB or less.'); setTimeout(() => setNotification(null), 3000); return; } setSelectedFile(files[0]); setUserContent(''); setYoutubeUrl(''); } }}>
+          <input type="file" id="file-upload" accept=".pdf,.txt" onChange={(e) => { if (e.target.files && e.target.files[0]) { if (e.target.files[0].size > 5 * 1024 * 1024) { setNotification('PDF file size must be 5 MB or less.'); setTimeout(() => setNotification(null), 3000); return; } setSelectedFile(e.target.files[0]); setUserContent(''); setYoutubeUrl(''); } }} style={{ display: 'none' }} />
           <label htmlFor="file-upload" style={{ cursor: 'pointer', color: '#4caf50' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📄</div>
             {selectedFile ? (
@@ -372,7 +405,19 @@ export const WhizardPage = () => {
         {/* Upload New Source Button (if sources exist) */}
         {sources.length > 0 && (
           <div style={{ padding: 16, borderTop: '1px solid #222', background: 'rgba(30,30,30,0.98)' }}>
-            <button onClick={() => setShowUploadModal(true)} style={{ width: '100%', background: 'linear-gradient(45deg, #4caf50, #66bb6a)', color: 'white', border: 'none', borderRadius: '10px', padding: '14px 0', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 8px rgba(76, 175, 80, 0.15)' }}>Upload New Source</button>
+            <button
+              onClick={() => {
+                if (sources.length >= 10) {
+                  setNotification('You can only have up to 10 sources per project.');
+                  setTimeout(() => setNotification(null), 3000);
+                } else {
+                  setShowUploadModal(true);
+                }
+              }}
+              style={{ width: '100%', background: 'linear-gradient(45deg, #4caf50, #66bb6a)', color: 'white', border: 'none', borderRadius: '10px', padding: '14px 0', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 8px rgba(76, 175, 80, 0.15)' }}
+            >
+              Upload New Source
+            </button>
           </div>
         )}
       </div>
@@ -431,53 +476,36 @@ export const WhizardPage = () => {
         </div>
       </div>
 
-      {/* Upload Modal */}
       {showUploadModal && (
-        <div style={{ 
-          position: 'fixed', 
-          top: 0, 
-          left: 0, 
-          width: '100vw', 
-          height: '100vh', 
-          background: 'rgba(0,0,0,0.8)', 
-          zIndex: 1000, 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center' 
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
-          <div style={{ 
-            background: '#1a1a1a', 
-            borderRadius: '20px', 
-            padding: '20px', 
-            maxWidth: '90vw', 
-            maxHeight: '90vh', 
-            overflow: 'auto',
-            position: 'relative',
-            border: '2px solid #4caf50'
-          }}>
-            <button 
-              onClick={() => setShowUploadModal(false)} 
-              style={{ 
-                position: 'absolute', 
-                top: '15px', 
-                right: '15px', 
-                background: '#f44336', 
-                color: 'white', 
-                border: 'none', 
-                borderRadius: '50%', 
-                width: '30px', 
-                height: '30px', 
-                cursor: 'pointer', 
-                fontSize: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              ×
-            </button>
+          <div style={{ background: '#222', borderRadius: 16, padding: 32, minWidth: 400, maxWidth: 700, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
             {UploadForm}
+            <button onClick={() => setShowUploadModal(false)} style={{ marginTop: 24, background: '#f44336', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 'bold', fontSize: 16, cursor: 'pointer' }}>Cancel</button>
           </div>
+        </div>
+      )}
+
+      {/* Notification (disappearing) */}
+      {notification && (
+        <div style={{
+          position: 'fixed',
+          top: 30,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#323232',
+          color: '#fff',
+          padding: '16px 32px',
+          borderRadius: 8,
+          boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
+          zIndex: 2000,
+          fontSize: 18,
+          fontWeight: 'bold',
+          opacity: 0.95
+        }}>
+          {notification}
         </div>
       )}
     </div>

@@ -346,6 +346,10 @@ export const WhizardPage = () => {
     <div style={{ height: '100vh', background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #2d2d2d 100%)', color: '#fff', fontFamily: 'Arial, sans-serif', position: 'relative', display: 'flex', flexDirection: 'row', alignItems: 'stretch', overflow: 'hidden' }}>
       {/* Left Sidebar: Sources & Upload */}
       <div style={{ width: 320, background: 'rgba(30,30,30,0.98)', borderRight: '1px solid #222', height: '100vh', position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column' }}>
+        {/* Back to Projects Button */}
+        <button onClick={handleBack} style={{ width: '100%', background: 'linear-gradient(45deg, #2196f3, #64b5f6)', color: 'white', border: 'none', borderRadius: '8px', padding: '12px 0', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(33,150,243,0.15)', marginBottom: 18, marginTop: 18 }}>
+          ← Back to Projects
+        </button>
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px 16px 0 16px' }}>
           <div style={{ fontWeight: 'bold', color: '#4caf50', marginBottom: 18, fontSize: 20 }}>Sources</div>
           {sources.length === 0 ? (

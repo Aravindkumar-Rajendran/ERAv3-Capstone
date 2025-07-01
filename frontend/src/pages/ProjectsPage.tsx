@@ -14,6 +14,8 @@ const ProjectsPage = () => {
   const { logout, token } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
 
   // Load projects from backend on mount
   useEffect(() => {
@@ -36,8 +38,7 @@ const ProjectsPage = () => {
   }, [token]);
 
   const handleCreate = async () => {
-    const name = prompt('Enter a name for your new project:');
-    if (!name) return;
+    if (!newProjectName.trim()) return;
     try {
       setLoading(true);
       const res = await fetch('http://localhost:8000/projects', {
@@ -46,7 +47,7 @@ const ProjectsPage = () => {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name: newProjectName })
       });
       const data = await res.json();
       if (data.status === 'success') {
@@ -58,6 +59,8 @@ const ProjectsPage = () => {
         if (data2.status === 'success') {
           setProjects(data2.projects);
         }
+        setShowModal(false);
+        setNewProjectName('');
         navigate('/whizard', { state: { projectId: data.project.id } });
       } else {
         alert('Failed to create project');
@@ -79,12 +82,42 @@ const ProjectsPage = () => {
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #2d2d2d 100%)', color: '#fff', fontFamily: 'Arial, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: 0 }}>
+      {/* Modal for new project name */}
+      {showModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#222', padding: '32px 28px', borderRadius: '16px', boxShadow: '0 4px 32px rgba(0,0,0,0.25)', minWidth: 320, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <h2 style={{ color: '#4caf50', marginBottom: 18 }}>Create New Project</h2>
+            <input
+              type="text"
+              value={newProjectName}
+              onChange={e => setNewProjectName(e.target.value)}
+              placeholder="Project name"
+              style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #444', fontSize: '16px', marginBottom: 18, width: '100%' }}
+              autoFocus
+              disabled={loading}
+              onKeyDown={e => { if (e.key === 'Enter') handleCreate(); }}
+            />
+            <div style={{ display: 'flex', gap: 16 }}>
+              <button
+                onClick={handleCreate}
+                disabled={loading || !newProjectName.trim()}
+                style={{ background: 'linear-gradient(45deg, #4caf50, #66bb6a)', color: 'white', border: 'none', borderRadius: '8px', padding: '10px 24px', fontWeight: 'bold', fontSize: '16px', cursor: loading ? 'not-allowed' : 'pointer', boxShadow: '0 2px 8px rgba(76,175,80,0.15)' }}
+              >{loading ? 'Creating...' : 'Create'}</button>
+              <button
+                onClick={() => { setShowModal(false); setNewProjectName(''); }}
+                disabled={loading}
+                style={{ background: 'linear-gradient(45deg, #f44336, #e57373)', color: 'white', border: 'none', borderRadius: '8px', padding: '10px 24px', fontWeight: 'bold', fontSize: '16px', cursor: loading ? 'not-allowed' : 'pointer', boxShadow: '0 2px 8px rgba(244,67,54,0.15)' }}
+              >Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Logout Button */}
       <button onClick={handleLogout} style={{ position: 'absolute', top: 20, right: 20, background: 'linear-gradient(45deg, #f44336, #e57373)', color: 'white', border: 'none', borderRadius: '8px', padding: '10px 20px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(244,67,54,0.15)', zIndex: 10 }}>Logout</button>
       <div style={{ background: 'rgba(0,0,0,0.5)', padding: '20px', borderBottom: '2px solid #4caf50', width: '100%' }}>
         <h1 style={{ margin: 0, textAlign: 'center', fontSize: '2.5rem', background: 'linear-gradient(45deg, #4caf50, #66bb6a, #81c784)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 0 20px rgba(76, 175, 80, 0.3)' }}>🗂️ My Projects</h1>
       </div>
-      <button onClick={handleCreate} disabled={loading} style={{ margin: '40px 0 30px 0', background: loading ? 'linear-gradient(45deg, #666, #888)' : 'linear-gradient(45deg, #4caf50, #66bb6a)', color: 'white', border: 'none', borderRadius: '25px', padding: '18px 50px', fontSize: '20px', fontWeight: 'bold', cursor: loading ? 'not-allowed' : 'pointer', boxShadow: '0 4px 20px rgba(76, 175, 80, 0.3)' }}>{loading ? 'Creating...' : '+ Create New Project'}</button>
+      <button onClick={() => setShowModal(true)} disabled={loading} style={{ margin: '40px 0 30px 0', background: loading ? 'linear-gradient(45deg, #666, #888)' : 'linear-gradient(45deg, #4caf50, #66bb6a)', color: 'white', border: 'none', borderRadius: '25px', padding: '18px 50px', fontSize: '20px', fontWeight: 'bold', cursor: loading ? 'not-allowed' : 'pointer', boxShadow: '0 4px 20px rgba(76, 175, 80, 0.3)' }}>{loading ? 'Creating...' : '+ Create New Project'}</button>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px', justifyContent: 'center', width: '100%', maxWidth: 900 }}>
         {loading ? (
           <div style={{ color: '#bbb', fontSize: 18, marginTop: 40 }}>Loading...</div>

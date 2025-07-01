@@ -423,9 +423,9 @@ export const InteractivePage: React.FC = () => {
             {topics.length === 0 ? (
               <div style={{ color: '#ff9800', marginBottom: 24 }}>No topics found for this project.</div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24, maxHeight: 260, overflowY: 'auto', paddingRight: 4 }}>
                 {topics.map((topic, idx) => (
-                  <button key={idx} onClick={() => handleTopicSelect(topic)} style={{ background: selectedTopics.includes(topic) ? 'linear-gradient(45deg, #4caf50, #66bb6a)' : 'rgba(255,255,255,0.08)', color: selectedTopics.includes(topic) ? 'white' : '#e0dede', border: selectedTopics.includes(topic) ? '2px solid #4caf50' : '2px solid #16213e', borderRadius: 10, padding: '12px', fontSize: 15, cursor: 'pointer', transition: 'all 0.2s' }}>{selectedTopics.includes(topic) && '✅ '}{topic}</button>
+                  <button key={idx} onClick={() => handleTopicSelect(topic)} style={{ background: selectedTopics.includes(topic) ? 'linear-gradient(45deg, #4caf50, #66bb6a)' : 'rgba(255,255,255,0.08)', color: selectedTopics.includes(topic) ? 'white' : '#e0dede', border: selectedTopics.includes(topic) ? '2px solid #4caf50' : '2px solid #16213e', borderRadius: 10, padding: '12px', fontSize: 15, cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'normal', wordBreak: 'break-word', textAlign: 'left' }}>{selectedTopics.includes(topic) && '✅ '}{topic}</button>
                 ))}
               </div>
             )}

@@ -28,6 +28,7 @@ export const QuizComponent = ({
             questions={quizData.questions}
             theme={quizData.theme}
             onComplete={handleComplete}
+            onClose={onClose}
           />
         );
       case 'TrueFalse':
@@ -37,6 +38,7 @@ export const QuizComponent = ({
             questions={quizData.questions}
             theme={quizData.theme}
             onComplete={handleComplete}
+            onClose={onClose}
           />
         );
       case 'FillBlanks':
@@ -46,6 +48,7 @@ export const QuizComponent = ({
             questions={quizData.questions}
             theme={quizData.theme}
             onComplete={handleComplete}
+            onClose={onClose}
           />
         );
       case 'MatchFollowing':
@@ -55,6 +58,7 @@ export const QuizComponent = ({
             questions={quizData.questions}
             theme={quizData.theme}
             onComplete={handleComplete}
+            onClose={onClose}
           />
         );
       default:

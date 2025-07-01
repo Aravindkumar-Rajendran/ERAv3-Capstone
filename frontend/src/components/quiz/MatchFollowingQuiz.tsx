@@ -5,6 +5,7 @@ interface MatchFollowingQuizProps {
   questions: MatchFollowingQuestion[];
   theme: Theme;
   onComplete: (score: number, totalQuestions: number) => void;
+  onClose: () => void;
 }
 
 interface MatchPair {
@@ -15,7 +16,7 @@ interface MatchPair {
   isCorrect: boolean;
 }
 
-export const MatchFollowingQuiz: React.FC<MatchFollowingQuizProps> = ({ questions, theme, onComplete }) => {
+export const MatchFollowingQuiz: React.FC<MatchFollowingQuizProps> = ({ questions, theme, onComplete, onClose }) => {
   const [selectedPairs, setSelectedPairs] = useState<MatchPair[]>([]);
   const [lockedLeftItems, setLockedLeftItems] = useState<number[]>([]);
   const [lockedRightItems, setLockedRightItems] = useState<number[]>([]);
@@ -125,7 +126,7 @@ export const MatchFollowingQuiz: React.FC<MatchFollowingQuizProps> = ({ question
         </div>
 
         <button
-          onClick={() => window.location.reload()}
+                      onClick={onClose}
           style={{
             backgroundColor: '#2196f3',
             background: 'linear-gradient(45deg, #2196f3, #21cbf3)',

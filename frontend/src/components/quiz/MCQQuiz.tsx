@@ -15,9 +15,10 @@ interface MCQQuizProps {
   questions: MCQQuestion[];
   theme: Theme;
   onComplete: (score: number, totalQuestions: number) => void;
+  onClose: () => void;
 }
 
-export const MCQQuiz: React.FC<MCQQuizProps> = ({ questions, theme, onComplete }) => {
+export const MCQQuiz: React.FC<MCQQuizProps> = ({ questions, theme, onComplete, onClose }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [questionStates, setQuestionStates] = useState<QuestionState[]>(() => 
     questions.map(() => ({
@@ -248,7 +249,7 @@ export const MCQQuiz: React.FC<MCQQuizProps> = ({ questions, theme, onComplete }
           </button>
           
           <button
-            onClick={() => window.location.reload()}
+            onClick={onClose}
             style={{
               backgroundColor: '#2196f3',
               background: 'linear-gradient(45deg, #2196f3, #21cbf3)',

@@ -5,6 +5,7 @@ interface TrueFalseQuizProps {
   questions: TrueFalseQuestion[];
   theme: Theme;
   onComplete: (score: number, totalQuestions: number) => void;
+  onClose: () => void;
 }
 
 interface QuestionState {
@@ -14,7 +15,7 @@ interface QuestionState {
   score: number; // 1, 0.5, or 0
 }
 
-export const TrueFalseQuiz: React.FC<TrueFalseQuizProps> = ({ questions, theme, onComplete }) => {
+export const TrueFalseQuiz: React.FC<TrueFalseQuizProps> = ({ questions, theme, onComplete, onClose }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [questionStates, setQuestionStates] = useState<QuestionState[]>(
     questions.map(() => ({
@@ -223,7 +224,7 @@ export const TrueFalseQuiz: React.FC<TrueFalseQuizProps> = ({ questions, theme, 
           </button>
           
           <button
-            onClick={() => window.location.reload()}
+            onClick={onClose}
             style={{
               backgroundColor: '#2196f3',
               background: 'linear-gradient(45deg, #2196f3, #21cbf3)',

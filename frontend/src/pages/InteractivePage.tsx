@@ -121,10 +121,11 @@ export const InteractivePage: React.FC = () => {
 
   // Handler to open interactive element from history
   const handleHistoryClick = async (entry: InteractiveHistoryEntry) => {
-    if (!projectId || !token) return;
-    
+    if (!projectId || !token || !entry.interact_id) {
+      alert('Invalid interactive entry.');
+      return;
+    }
     setIsGenerating(true);
-    
     try {
       const resp = await fetch(`http://localhost:8000/interact-content/${entry.interact_id}`, {
         headers: { Authorization: `Bearer ${token}` }

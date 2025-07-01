@@ -35,6 +35,9 @@ export const WhizardPage = () => {
   // New: Conversations state for chat history sidebar
   const [conversations, setConversations] = useState<any[]>([]);
 
+  // Notification state
+  const [notification, setNotification] = useState<string | null>(null);
+
   // Fetch sources for this project/user
   const fetchSources = async () => {
     if (projectId && token) {
@@ -373,7 +376,19 @@ export const WhizardPage = () => {
         {/* Upload New Source Button (if sources exist) */}
         {sources.length > 0 && (
           <div style={{ padding: 16, borderTop: '1px solid #222', background: 'rgba(30,30,30,0.98)' }}>
-            <button onClick={() => setShowUploadModal(true)} style={{ width: '100%', background: 'linear-gradient(45deg, #4caf50, #66bb6a)', color: 'white', border: 'none', borderRadius: '10px', padding: '14px 0', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 8px rgba(76, 175, 80, 0.15)' }}>Upload New Source</button>
+            <button
+              onClick={() => {
+                if (sources.length >= 10) {
+                  setNotification('You can only have up to 10 sources per project.');
+                  setTimeout(() => setNotification(null), 3000);
+                } else {
+                  setShowUploadModal(true);
+                }
+              }}
+              style={{ width: '100%', background: 'linear-gradient(45deg, #4caf50, #66bb6a)', color: 'white', border: 'none', borderRadius: '10px', padding: '14px 0', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 8px rgba(76, 175, 80, 0.15)' }}
+            >
+              Upload New Source
+            </button>
           </div>
         )}
       </div>
@@ -441,6 +456,27 @@ export const WhizardPage = () => {
             {UploadForm}
             <button onClick={() => setShowUploadModal(false)} style={{ marginTop: 24, background: '#f44336', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 'bold', fontSize: 16, cursor: 'pointer' }}>Cancel</button>
           </div>
+        </div>
+      )}
+
+      {/* Notification (disappearing) */}
+      {notification && (
+        <div style={{
+          position: 'fixed',
+          top: 30,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#323232',
+          color: '#fff',
+          padding: '16px 32px',
+          borderRadius: 8,
+          boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
+          zIndex: 2000,
+          fontSize: 18,
+          fontWeight: 'bold',
+          opacity: 0.95
+        }}>
+          {notification}
         </div>
       )}
     </div>

@@ -302,8 +302,16 @@ async def upload(
         chunks, topics = await chunker.chunk_with_topics(content)
         conversation_id = indexer.get_conversation_id()
         if chunks and topics:
+            # --- Accumulate topics instead of overwriting ---
+            existing_topics = database_client.read_project_topics(project_id, user_id=current_user["user_id"])
+            if existing_topics:
+                # Merge and deduplicate, preserving order
+                merged_topics = list(dict.fromkeys([t.strip() for t in existing_topics + topics if t and t.strip()]))
+            else:
+                merged_topics = [t.strip() for t in topics if t and t.strip()]
+            database_client.write_topics(project_id, merged_topics, user_id=current_user["user_id"])
+            # Index only the new topics/chunks for this upload
             indexer.create_index_with_topics(conversation_id, chunks, topics)
-            database_client.write_topics(project_id, topics, user_id=current_user["user_id"])
         else:
             print("No chunks/topics to index for this upload. Skipping ChromaDB indexing.")
         # Store the source in the database

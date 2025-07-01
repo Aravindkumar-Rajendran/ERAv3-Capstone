@@ -6,7 +6,7 @@ Instructions:
 
 Analyze the following text and perform these steps:
 
-1. Segment the Text: Read through the entire text and divide it into logical, coherent chunks. The number of chunks should be determined by the natural shifts in topic. Keep the chunks and topics in high level and max of 4.
+1. Segment the Text: Read through the entire text and divide it into logical, coherent chunks. The number of chunks should be determined by the natural shifts in topic. Keep the chunks and topics in super high level and between 1 - 3 topics based on the length of the text.
 2. For Each Chunk, Process as Follows:
     - Identify a Core Topic: Create a clear and descriptive heading of 3-5 words that accurately reflects the main theme of the chunk.
     - Clean and Refine:

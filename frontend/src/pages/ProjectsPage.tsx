@@ -1,6 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import {
+  Box,
+  Container,
+  Typography,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Card,
+  CardContent,
+  CardActions,
+  CircularProgress,
+  IconButton,
+  Grid,
+} from '@mui/material';
+import {
+  Add as AddIcon,
+  Folder as FolderIcon,
+  Logout as LogoutIcon,
+} from '@mui/icons-material';
 
 interface Project {
   id: string;
@@ -81,59 +103,178 @@ const ProjectsPage = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #2d2d2d 100%)', color: '#fff', fontFamily: 'Arial, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', padding: 0 }}>
-      {/* Modal for new project name */}
-      {showModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#222', padding: '32px 28px', borderRadius: '16px', boxShadow: '0 4px 32px rgba(0,0,0,0.25)', minWidth: 320, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <h2 style={{ color: '#4caf50', marginBottom: 18 }}>Create New Project</h2>
-            <input
-              type="text"
-              value={newProjectName}
-              onChange={e => setNewProjectName(e.target.value)}
-              placeholder="Project name"
-              style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #444', fontSize: '16px', marginBottom: 18, width: '100%' }}
-              autoFocus
-              disabled={loading}
-              onKeyDown={e => { if (e.key === 'Enter') handleCreate(); }}
-            />
-            <div style={{ display: 'flex', gap: 16 }}>
-              <button
-                onClick={handleCreate}
-                disabled={loading || !newProjectName.trim()}
-                style={{ background: 'linear-gradient(45deg, #4caf50, #66bb6a)', color: 'white', border: 'none', borderRadius: '8px', padding: '10px 24px', fontWeight: 'bold', fontSize: '16px', cursor: loading ? 'not-allowed' : 'pointer', boxShadow: '0 2px 8px rgba(76,175,80,0.15)' }}
-              >{loading ? 'Creating...' : 'Create'}</button>
-              <button
-                onClick={() => { setShowModal(false); setNewProjectName(''); }}
-                disabled={loading}
-                style={{ background: 'linear-gradient(45deg, #f44336, #e57373)', color: 'white', border: 'none', borderRadius: '8px', padding: '10px 24px', fontWeight: 'bold', fontSize: '16px', cursor: loading ? 'not-allowed' : 'pointer', boxShadow: '0 2px 8px rgba(244,67,54,0.15)' }}
-              >Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Logout Button */}
-      <button onClick={handleLogout} style={{ position: 'absolute', top: 20, right: 20, background: 'linear-gradient(45deg, #f44336, #e57373)', color: 'white', border: 'none', borderRadius: '8px', padding: '10px 20px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(244,67,54,0.15)', zIndex: 10 }}>Logout</button>
-      <div style={{ background: 'rgba(0,0,0,0.5)', padding: '20px', borderBottom: '2px solid #4caf50', width: '100%' }}>
-        <h1 style={{ margin: 0, textAlign: 'center', fontSize: '2.5rem', background: 'linear-gradient(45deg, #4caf50, #66bb6a, #81c784)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 0 20px rgba(76, 175, 80, 0.3)' }}>🗂️ My Projects</h1>
-      </div>
-      <button onClick={() => setShowModal(true)} disabled={loading} style={{ margin: '40px 0 30px 0', background: loading ? 'linear-gradient(45deg, #666, #888)' : 'linear-gradient(45deg, #4caf50, #66bb6a)', color: 'white', border: 'none', borderRadius: '25px', padding: '18px 50px', fontSize: '20px', fontWeight: 'bold', cursor: loading ? 'not-allowed' : 'pointer', boxShadow: '0 4px 20px rgba(76, 175, 80, 0.3)' }}>{loading ? 'Creating...' : '+ Create New Project'}</button>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px', justifyContent: 'center', width: '100%', maxWidth: 900 }}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        bgcolor: 'background.default',
+        pt: 8,
+      }}
+    >
+      {/* Header */}
+      <Box
+        sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bgcolor: 'background.paper',
+          borderBottom: 1,
+          borderColor: 'divider',
+          zIndex: 1100,
+          px: 3,
+          py: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Typography
+          variant="h5"
+          sx={{
+            fontWeight: 600,
+            color: 'primary.main',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+          }}
+        >
+          <FolderIcon /> My Projects
+        </Typography>
+        <IconButton
+          onClick={handleLogout}
+          color="primary"
+          sx={{ ml: 2 }}
+        >
+          <LogoutIcon />
+        </IconButton>
+      </Box>
+
+      <Container maxWidth="lg" sx={{ mt: 4 }}>
+        {/* Create Project Button */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 6 }}>
+          <Button
+            variant="contained"
+            size="large"
+            startIcon={<AddIcon />}
+            onClick={() => setShowModal(true)}
+            disabled={loading}
+            sx={{
+              borderRadius: 3,
+              py: 1.5,
+              px: 4,
+              fontSize: '1.1rem',
+            }}
+          >
+            Create New Project
+          </Button>
+        </Box>
+
+        {/* Projects Grid */}
         {loading ? (
-          <div style={{ color: '#bbb', fontSize: 18, marginTop: 40 }}>Loading...</div>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
+            <CircularProgress />
+          </Box>
         ) : projects.length === 0 ? (
-          <div style={{ color: '#bbb', fontSize: 18, marginTop: 40 }}>No projects yet. Click "Create New Project" to get started!</div>
+          <Typography
+            variant="h6"
+            color="text.secondary"
+            align="center"
+            sx={{ mt: 8 }}
+          >
+            No projects yet. Click "Create New Project" to get started!
+          </Typography>
         ) : (
-          projects.map((proj) => (
-            <div key={proj.id} style={{ background: 'rgba(255,255,255,0.07)', borderRadius: '16px', padding: '32px 28px', minWidth: 260, maxWidth: 320, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', display: 'flex', flexDirection: 'column', alignItems: 'center', border: '1px solid rgba(255,255,255,0.12)' }}>
-              <h2 style={{ color: '#4caf50', marginBottom: 10 }}>{proj.name}</h2>
-              <div style={{ color: '#bbb', fontSize: 15, marginBottom: 18 }}>Created: {proj.created_at?.slice(0, 10) || ''}</div>
-              <button onClick={() => handleContinue(proj.id)} style={{ background: 'linear-gradient(45deg, #16213e, #0f3460)', color: 'white', border: 'none', borderRadius: '10px', padding: '12px 32px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', marginTop: 10 }}>Continue</button>
-            </div>
-          ))
+          <Box
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 4,
+              justifyContent: 'center',
+            }}
+          >
+            {projects.map((proj) => (
+              <Card
+                key={proj.id}
+                sx={{
+                  width: 320,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  borderRadius: 2,
+                }}
+              >
+                <CardContent sx={{ flexGrow: 1 }}>
+                  <Typography
+                    variant="h6"
+                    gutterBottom
+                    sx={{ color: 'primary.main', fontWeight: 600 }}
+                  >
+                    {proj.name}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                  >
+                    Created: {proj.created_at?.slice(0, 10) || ''}
+                  </Typography>
+                </CardContent>
+                <CardActions>
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    onClick={() => handleContinue(proj.id)}
+                    sx={{ borderRadius: 2 }}
+                  >
+                    Continue
+                  </Button>
+                </CardActions>
+              </Card>
+            ))}
+          </Box>
         )}
-      </div>
-    </div>
+      </Container>
+
+      {/* Create Project Dialog */}
+      <Dialog
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Create New Project</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Project Name"
+            fullWidth
+            value={newProjectName}
+            onChange={(e) => setNewProjectName(e.target.value)}
+            disabled={loading}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleCreate();
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setShowModal(false);
+              setNewProjectName('');
+            }}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreate}
+            variant="contained"
+            disabled={loading || !newProjectName.trim()}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 };
 

@@ -1,5 +1,27 @@
 import React, { useState } from 'react';
 import { MatchFollowingQuestion, Theme } from '../../types/quiz';
+import {
+  Box,
+  Button,
+  Typography,
+  Paper,
+  Stack,
+  Card,
+  CardContent,
+  Grid,
+  Chip,
+  IconButton,
+  Tooltip,
+  LinearProgress,
+  useTheme,
+} from '@mui/material';
+import {
+  Check as CheckIcon,
+  Close as CloseIcon,
+  Refresh as RetryIcon,
+  EmojiEvents as TrophyIcon,
+  ArrowForward as ArrowIcon,
+} from '@mui/icons-material';
 
 interface MatchFollowingQuizProps {
   questions: MatchFollowingQuestion[];
@@ -16,7 +38,13 @@ interface MatchPair {
   isCorrect: boolean;
 }
 
-export const MatchFollowingQuiz: React.FC<MatchFollowingQuizProps> = ({ questions, theme, onComplete, onClose }) => {
+export const MatchFollowingQuiz: React.FC<MatchFollowingQuizProps> = ({
+  questions,
+  theme,
+  onComplete,
+  onClose,
+}) => {
+  const muiTheme = useTheme();
   const [selectedPairs, setSelectedPairs] = useState<MatchPair[]>([]);
   const [lockedLeftItems, setLockedLeftItems] = useState<number[]>([]);
   const [lockedRightItems, setLockedRightItems] = useState<number[]>([]);
@@ -26,10 +54,10 @@ export const MatchFollowingQuiz: React.FC<MatchFollowingQuizProps> = ({ question
   const [score, setScore] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
 
-  // For demo, we'll use the first question's pairs (normally would have multiple questions)
+  // For demo, we'll use the first question's pairs
   const currentQuestion = questions[0];
   const leftItems = currentQuestion.pairs;
-  
+
   // Create shuffled right options but keep them FIXED during gameplay
   const [rightItems] = useState(() => {
     const shuffledOptions = [...currentQuestion.pairs].sort(() => Math.random() - 0.5);
@@ -44,7 +72,7 @@ export const MatchFollowingQuiz: React.FC<MatchFollowingQuizProps> = ({ question
   const handleRightClick = (rightItem: any) => {
     if (lockedRightItems.includes(rightItem.id) || selectedLeft === null) return;
 
-    const leftItem = leftItems.find(item => item.id === selectedLeft);
+    const leftItem = leftItems.find((item) => item.id === selectedLeft);
     if (!leftItem) return;
 
     const newPair: MatchPair = {
@@ -52,19 +80,19 @@ export const MatchFollowingQuiz: React.FC<MatchFollowingQuizProps> = ({ question
       rightId: rightItem.id,
       leftText: leftItem.left,
       rightText: rightItem.right,
-      isCorrect: leftItem.right === rightItem.right
+      isCorrect: leftItem.right === rightItem.right,
     };
 
-    setSelectedPairs(prev => [...prev, newPair]);
-    setLockedLeftItems(prev => [...prev, selectedLeft]);
-    setLockedRightItems(prev => [...prev, rightItem.id]);
+    setSelectedPairs((prev) => [...prev, newPair]);
+    setLockedLeftItems((prev) => [...prev, selectedLeft]);
+    setLockedRightItems((prev) => [...prev, rightItem.id]);
     setSelectedLeft(null);
   };
 
   const handleSubmit = () => {
     if (selectedPairs.length !== leftItems.length) return;
 
-    const correctPairs = selectedPairs.filter(pair => pair.isCorrect).length;
+    const correctPairs = selectedPairs.filter((pair) => pair.isCorrect).length;
     setScore(correctPairs);
     setIsSubmitted(true);
     setShowResults(true);
@@ -87,376 +115,211 @@ export const MatchFollowingQuiz: React.FC<MatchFollowingQuizProps> = ({ question
 
   if (isCompleted) {
     const percentage = Math.round((score / leftItems.length) * 100);
-    
-    return (
-      <div style={{
-        background: 'linear-gradient(135deg, #9C27B0 0%, #8E24AA 100%)',
-        minHeight: '600px',
-        borderRadius: '20px',
-        padding: '40px',
-        color: 'white',
-        fontFamily: 'Arial, sans-serif',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center'
-      }}>
-        <div style={{ fontSize: '60px', marginBottom: '20px' }}>🎯</div>
-        <h2 style={{ fontSize: '36px', margin: '0 0 20px 0' }}>Match Following Completed!</h2>
-        
-        <div style={{
-          backgroundColor: 'rgba(255,255,255,0.2)',
-          borderRadius: '15px',
-          padding: '30px',
-          marginBottom: '30px',
-          backdropFilter: 'blur(10px)'
-        }}>
-          <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '15px' }}>
-            Final Score: {score} / {leftItems.length}
-          </div>
-          <div style={{ fontSize: '20px', marginBottom: '15px' }}>
-            Percentage: {percentage}%
-          </div>
-          <div style={{ fontSize: '22px', fontWeight: 'bold' }}>
-            {percentage >= 80 ? '⭐⭐⭐ Outstanding!' : 
-             percentage >= 60 ? '⭐⭐ Good Job!' : 
-             percentage >= 40 ? '⭐ Keep Learning!' : 'Try Again!'}
-          </div>
-        </div>
 
-        <button
-                      onClick={onClose}
-          style={{
-            backgroundColor: '#2196f3',
-            background: 'linear-gradient(45deg, #2196f3, #21cbf3)',
-            color: 'white',
-            border: 'none',
-            padding: '15px 40px',
-            borderRadius: '25px',
-            fontSize: '18px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            boxShadow: '0 4px 15px rgba(33, 150, 243, 0.4)',
-            transition: 'transform 0.2s ease'
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <TrophyIcon
+          sx={{ fontSize: 80, color: 'primary.main', mb: 2 }}
+        />
+        <Typography variant="h3" gutterBottom>
+          Match Following Completed!
+        </Typography>
+
+        <Paper
+          elevation={3}
+          sx={{
+            p: 4,
+            mb: 4,
+            maxWidth: 500,
+            mx: 'auto',
+            bgcolor: 'primary.light',
+            color: 'primary.contrastText',
           }}
-          onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-          onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
         >
-          🏠 Back to Home
-        </button>
-      </div>
+          <Typography variant="h4" gutterBottom>
+            Final Score: {score} / {leftItems.length}
+          </Typography>
+          <Typography variant="h5" gutterBottom>
+            Percentage: {percentage}%
+          </Typography>
+          <Typography variant="h5" fontWeight="bold">
+            {percentage >= 80
+              ? '⭐⭐⭐ Outstanding!'
+              : percentage >= 60
+              ? '⭐⭐ Good Job!'
+              : percentage >= 40
+              ? '⭐ Keep Learning!'
+              : 'Try Again!'}
+          </Typography>
+        </Paper>
+
+        <Button
+          variant="contained"
+          color="primary"
+          size="large"
+          onClick={onClose}
+        >
+          Close Quiz
+        </Button>
+      </Box>
     );
   }
 
-  return (
-    <div style={{
-      background: `linear-gradient(135deg, ${theme.primaryColor} 0%, ${theme.secondaryColor} 100%)`,
-      minHeight: '600px',
-      borderRadius: '20px',
-      padding: '30px',
-      color: theme.textColor,
-      fontFamily: theme.fontFamily
-    }}>
-      {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-        <h2 style={{ 
-          margin: 0, 
-          fontSize: '28px', 
-          background: 'linear-gradient(45deg, #ffd700, #ffed4e)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          textShadow: '0 0 20px rgba(255, 215, 0, 0.3)'
-        }}>
-          Match the Following
-        </h2>
-        <p style={{ margin: '10px 0', opacity: 0.9 }}>
-          {currentQuestion.instruction}
-        </p>
-        <div style={{ fontSize: '16px', marginTop: '10px' }}>
-          Pairs Matched: {selectedPairs.length} / {leftItems.length}
-        </div>
-      </div>
+  const progress = (selectedPairs.length / leftItems.length) * 100;
 
-      {/* Matching Area */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '40px',
-        marginBottom: '30px',
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        padding: '30px',
-        borderRadius: '15px',
-        backdropFilter: 'blur(10px)'
-      }}>
-        {/* Left Column */}
-        <div>
-          <h3 style={{ textAlign: 'center', marginBottom: '20px', color: '#ffed4e' }}>
+  return (
+    <Box>
+      <LinearProgress
+        variant="determinate"
+        value={progress}
+        sx={{ mb: 4, height: 8, borderRadius: 4 }}
+      />
+
+      <Box sx={{ mb: 4, textAlign: 'center' }}>
+        <Typography variant="h5" gutterBottom>
+          Match the Following
+        </Typography>
+        <Typography variant="body1" color="text.secondary" gutterBottom>
+          {currentQuestion.instruction}
+        </Typography>
+        <Typography variant="subtitle1">
+          Pairs Matched: {selectedPairs.length} / {leftItems.length}
+        </Typography>
+      </Box>
+
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 4, mb: 4 }}>
+        <Box sx={{ flex: 1 }}>
+          <Typography variant="h6" gutterBottom align="center" color="primary">
             Questions
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {leftItems.map((item, index) => {
+          </Typography>
+          <Stack spacing={2}>
+            {leftItems.map((item) => {
               const isLocked = lockedLeftItems.includes(item.id);
               const isSelected = selectedLeft === item.id;
-              
+              const matchedPair = selectedPairs.find((p) => p.leftId === item.id);
+
               return (
-                <div
+                <Paper
                   key={item.id}
+                  elevation={isSelected ? 4 : 1}
                   onClick={() => handleLeftClick(item)}
-                  style={{
-                    padding: '15px 20px',
-                    borderRadius: '10px',
-                    border: '2px solid',
-                    borderColor: isLocked ? '#4caf50' : isSelected ? '#ffd700' : 'rgba(255,255,255,0.3)',
-                    backgroundColor: isLocked ? '#4caf50' : isSelected ? 'rgba(255,215,0,0.2)' : 'rgba(255,255,255,0.1)',
+                  sx={{
+                    p: 2,
                     cursor: isLocked ? 'default' : 'pointer',
+                    bgcolor: isLocked
+                      ? matchedPair?.isCorrect
+                        ? 'success.light'
+                        : 'error.light'
+                      : isSelected
+                      ? 'primary.light'
+                      : 'background.paper',
                     transition: 'all 0.3s ease',
-                    opacity: isLocked ? 0.7 : 1,
-                    transform: isSelected ? 'scale(1.02)' : 'scale(1)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    fontSize: '16px'
+                    '&:hover': {
+                      transform: isLocked ? 'none' : 'translateX(8px)',
+                    },
                   }}
                 >
-                  <span style={{
-                    minWidth: '25px',
-                    height: '25px',
-                    borderRadius: '50%',
-                    backgroundColor: isLocked ? '#fff' : isSelected ? '#ffd700' : 'rgba(255,255,255,0.3)',
-                    color: isLocked || isSelected ? '#333' : '#fff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 'bold',
-                    marginRight: '12px',
-                    fontSize: '14px'
-                  }}>
-                    {index + 1}
-                  </span>
-                  <span>{item.left}</span>
-                  {isLocked && <span style={{ marginLeft: 'auto', fontSize: '18px' }}>🔒</span>}
-                </div>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <Typography variant="body1">{item.left}</Typography>
+                    {isLocked && (
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <ArrowIcon sx={{ mx: 1 }} />
+                        <Typography variant="body2" color="text.secondary">
+                          {matchedPair?.rightText}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                </Paper>
               );
             })}
-          </div>
-        </div>
+          </Stack>
+        </Box>
 
-        {/* Right Column */}
-        <div>
-          <h3 style={{ textAlign: 'center', marginBottom: '20px', color: '#ffed4e' }}>
-            Options
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {rightItems.map((item, index) => {
+        <Box sx={{ flex: 1 }}>
+          <Typography variant="h6" gutterBottom align="center" color="primary">
+            Answers
+          </Typography>
+          <Stack spacing={2}>
+            {rightItems.map((item) => {
               const isLocked = lockedRightItems.includes(item.id);
-              const canSelect = selectedLeft !== null && !isLocked;
-              
+              const matchedPair = selectedPairs.find((p) => p.rightId === item.id);
+
               return (
-                <div
+                <Paper
                   key={item.id}
+                  elevation={1}
                   onClick={() => handleRightClick(item)}
-                  style={{
-                    padding: '15px 20px',
-                    borderRadius: '10px',
-                    border: '2px solid',
-                    borderColor: isLocked ? '#4caf50' : canSelect ? '#ff9800' : 'rgba(255,255,255,0.3)',
-                    backgroundColor: isLocked ? '#4caf50' : canSelect ? 'rgba(255,152,0,0.2)' : 'rgba(255,255,255,0.1)',
-                    cursor: isLocked ? 'default' : canSelect ? 'pointer' : 'not-allowed',
+                  sx={{
+                    p: 2,
+                    cursor:
+                      isLocked || !selectedLeft ? 'default' : 'pointer',
+                    bgcolor: isLocked
+                      ? matchedPair?.isCorrect
+                        ? 'success.light'
+                        : 'error.light'
+                      : 'background.paper',
+                    opacity: isLocked ? 0.8 : 1,
                     transition: 'all 0.3s ease',
-                    opacity: isLocked ? 0.7 : canSelect ? 1 : 0.5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    fontSize: '16px'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (canSelect) {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (canSelect) {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                    }
+                    '&:hover': {
+                      transform:
+                        isLocked || !selectedLeft ? 'none' : 'translateX(-8px)',
+                    },
                   }}
                 >
-                  <span style={{
-                    minWidth: '25px',
-                    height: '25px',
-                    borderRadius: '50%',
-                    backgroundColor: isLocked ? '#fff' : canSelect ? '#ff9800' : 'rgba(255,255,255,0.3)',
-                    color: isLocked || canSelect ? '#333' : '#fff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 'bold',
-                    marginRight: '12px',
-                    fontSize: '14px'
-                  }}>
-                    {String.fromCharCode(65 + index)}
-                  </span>
-                  <span>{item.right}</span>
-                  {isLocked && <span style={{ marginLeft: 'auto', fontSize: '18px' }}>🔒</span>}
-                </div>
+                  <Typography variant="body1">{item.right}</Typography>
+                </Paper>
               );
             })}
-          </div>
-        </div>
-      </div>
+          </Stack>
+        </Box>
+      </Box>
 
-      {/* Instructions */}
-      {!isSubmitted && selectedPairs.length < leftItems.length && (
-        <div style={{
-          backgroundColor: 'rgba(255,215,0,0.2)',
-          padding: '15px',
-          borderRadius: '10px',
-          marginBottom: '20px',
-          border: '1px solid rgba(255,215,0,0.3)',
-          textAlign: 'center'
-        }}>
-          {selectedLeft ? 
-            "Now click an option from the right column to create a pair" : 
-            "Click a question from the left column first"}
-        </div>
-      )}
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: 2,
+          mt: 4,
+        }}
+      >
+        <Button
+          variant="outlined"
+          color="warning"
+          startIcon={<RetryIcon />}
+          onClick={handleRetry}
+          disabled={selectedPairs.length === 0}
+        >
+          Reset
+        </Button>
 
-      {/* Results */}
-      {showResults && (
-        <div style={{
-          backgroundColor: 'rgba(255,255,255,0.1)',
-          padding: '25px',
-          borderRadius: '15px',
-          marginBottom: '20px',
-          backdropFilter: 'blur(10px)'
-        }}>
-          <h3 style={{ textAlign: 'center', marginBottom: '20px', color: '#ffed4e' }}>
-            Results: {score} / {leftItems.length} Correct
-          </h3>
-                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-             {selectedPairs.map((pair, index) => {
-               // Find the correct answer for this left item
-               const correctItem = leftItems.find(item => item.id === pair.leftId);
-               const correctAnswer = correctItem ? correctItem.right : '';
-               
-               return (
-                 <div key={index} style={{
-                   padding: '15px',
-                   borderRadius: '10px',
-                   backgroundColor: pair.isCorrect ? 'rgba(76, 175, 80, 0.3)' : 'rgba(244, 67, 54, 0.3)',
-                   border: `2px solid ${pair.isCorrect ? '#4caf50' : '#f44336'}`,
-                   display: 'flex',
-                   flexDirection: 'column',
-                   gap: '8px'
-                 }}>
-                   <div style={{
-                     display: 'flex',
-                     justifyContent: 'space-between',
-                     alignItems: 'center'
-                   }}>
-                     <span style={{ fontWeight: 'bold' }}>{pair.leftText}</span>
-                     <span style={{ 
-                       fontSize: '20px',
-                       color: pair.isCorrect ? '#4caf50' : '#f44336'
-                     }}>
-                       {pair.isCorrect ? '✅' : '❌'}
-                     </span>
-                     <span style={{
-                       color: pair.isCorrect ? '#4caf50' : '#f44336',
-                       fontWeight: pair.isCorrect ? 'normal' : 'bold'
-                     }}>
-                       {pair.rightText}
-                     </span>
-                   </div>
-                   {!pair.isCorrect && (
-                     <div style={{
-                       fontSize: '14px',
-                       color: '#4caf50',
-                       fontStyle: 'italic',
-                       textAlign: 'center',
-                       backgroundColor: 'rgba(76, 175, 80, 0.2)',
-                       padding: '8px',
-                       borderRadius: '5px'
-                     }}>
-                       Correct Answer: {correctAnswer}
-                     </div>
-                   )}
-                 </div>
-               );
-             })}
-          </div>
-        </div>
-      )}
-
-      {/* Action Buttons */}
-      <div style={{ textAlign: 'center' }}>
-        {!isSubmitted && selectedPairs.length === leftItems.length && (
-          <button
-            onClick={handleSubmit}
-            style={{
-              backgroundColor: '#4caf50',
-              background: 'linear-gradient(45deg, #4caf50, #66bb6a)',
-              color: 'white',
-              border: 'none',
-              padding: '15px 40px',
-              borderRadius: '25px',
-              fontSize: '18px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              boxShadow: '0 4px 15px rgba(76, 175, 80, 0.4)',
-              transition: 'transform 0.2s ease'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+        {showResults ? (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleFinish}
+            startIcon={<CheckIcon />}
           >
-            ✓ Submit Answers
-          </button>
+            Complete Quiz
+          </Button>
+        ) : (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleSubmit}
+            disabled={selectedPairs.length !== leftItems.length}
+            startIcon={<CheckIcon />}
+          >
+            Check Answers
+          </Button>
         )}
-
-        {showResults && (
-          <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
-            <button
-              onClick={handleRetry}
-              style={{
-                backgroundColor: '#ff9800',
-                background: 'linear-gradient(45deg, #ff9800, #ffb74d)',
-                color: 'white',
-                border: 'none',
-                padding: '12px 30px',
-                borderRadius: '20px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                boxShadow: '0 4px 15px rgba(255, 152, 0, 0.4)',
-                transition: 'transform 0.2s ease'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              🔄 Retry
-            </button>
-
-            <button
-              onClick={handleFinish}
-              style={{
-                backgroundColor: '#2196f3',
-                background: 'linear-gradient(45deg, #2196f3, #42a5f5)',
-                color: 'white',
-                border: 'none',
-                padding: '12px 30px',
-                borderRadius: '20px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                boxShadow: '0 4px 15px rgba(33, 150, 243, 0.4)',
-                transition: 'transform 0.2s ease'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              ✓ Finish
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }; 

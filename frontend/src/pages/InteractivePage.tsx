@@ -9,7 +9,8 @@ import { QuizData } from '../types/quiz';
 import { TimelineData } from '../types/timeline';
 import { MindmapData } from '../types/mindmap';
 import { FlashcardData } from '../types/flashcard';
-import { CSSProperties } from 'react';
+import { Box, Paper, Typography, Button, Grid, List, ListItem, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { ListItemButton } from '@mui/material';
 
 // Add type for interactive history entry
 interface InteractiveHistoryEntry {
@@ -295,123 +296,65 @@ export const InteractivePage: React.FC = () => {
   };
   const handleLogout = async () => { await logout(); navigate('/login'); };
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #2d2d2d 100%)', color: '#fff', fontFamily: 'Arial, sans-serif', position: 'relative', display: 'flex', flexDirection: 'row' }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.paper', color: 'text.primary', display: 'flex', flexDirection: 'row' }}>
+      {/* Main Content */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
         {/* Header Section */}
-        <div style={{ 
-          background: 'rgba(0,0,0,0.5)', 
-          padding: '20px', 
-          borderBottom: '2px solid #4caf50',
-          textAlign: 'center',
-          width: '100%'
-        }}>
-          <h1 style={{ 
-            margin: 0, 
-            fontSize: '2.5rem', 
-            background: 'linear-gradient(45deg, #4caf50, #66bb6a, #81c784)', 
-            WebkitBackgroundClip: 'text', 
-            WebkitTextFillColor: 'transparent', 
-            textShadow: '0 0 20px rgba(76, 175, 80, 0.3)'
-          }}>
-            🧙‍♂️ WhizardLM Interactive
-          </h1>
-          <p style={{ 
-            margin: '10px 0 0 0', 
-            opacity: 0.8, 
-            fontSize: '1.1rem' 
-          }}>
+        <Paper elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: 2, borderColor: 'primary.main', py: 3, px: 2, textAlign: 'center', borderRadius: 0 }}>
+          <Typography variant="h4" fontWeight={700} color="primary">
+            WhizardLM Interactive
+          </Typography>
+          <Typography variant="subtitle1" sx={{ mt: 1, opacity: 0.8 }}>
             Generate interactive learning elements for your selected topics!
-          </p>
-        </div>
-
+          </Typography>
+        </Paper>
         {/* Navigation Buttons */}
-        <div style={{ position: 'absolute', top: 20, left: 20, zIndex: 10 }}>
-          <button
-            onClick={() => navigate(-1)}
-            style={{
-              background: 'linear-gradient(45deg, #2196f3, #64b5f6)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '10px 20px',
-              fontWeight: 'bold',
-              fontSize: '16px',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(33,150,243,0.15)'
-            }}
-          >
+        <Box sx={{ position: 'absolute', top: 24, left: 24, zIndex: 10 }}>
+          <Button variant="outlined" color="primary" onClick={() => navigate(-1)} sx={{ borderRadius: 2, fontWeight: 600 }}>
             ← Back
-          </button>
-        </div>
-
-        <button 
-          onClick={handleLogout} 
-          style={{ 
-            position: 'absolute', 
-            top: 20, 
-            right: 20, 
-            background: 'linear-gradient(45deg, #f44336, #e57373)', 
-            color: 'white', 
-            border: 'none', 
-            borderRadius: '8px', 
-            padding: '10px 20px', 
-            fontWeight: 'bold', 
-            fontSize: '16px', 
-            cursor: 'pointer', 
-            boxShadow: '0 2px 8px rgba(244,67,54,0.15)', 
-            zIndex: 10 
-          }}
-        >
-          Logout
-        </button>
-
+          </Button>
+        </Box>
+        <Box sx={{ position: 'absolute', top: 24, right: 24, zIndex: 10 }}>
+          <Button variant="outlined" color="error" onClick={handleLogout} sx={{ borderRadius: 2, fontWeight: 600 }}>
+            Logout
+          </Button>
+        </Box>
         {/* Interactive Type Selector */}
         {showOptions && (
-          <div style={{ 
-            flex: 1,
-            background: 'rgba(255,255,255,0.05)', 
-            borderRadius: '15px', 
-            padding: '30px', 
-            border: '1px solid rgba(255,255,255,0.1)', 
-            animation: 'fadeIn 0.5s ease-in', 
-            margin: '20px auto',
-            maxWidth: 700,
-            width: '100%'
-          }}>
-            <h3 style={{ textAlign: 'center', marginBottom: '30px', color: '#4caf50' }}>🎯 Choose an Interactive Element:</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+          <Paper elevation={2} sx={{ flex: 1, bgcolor: 'background.default', borderRadius: 3, p: 4, border: 1, borderColor: 'divider', m: '32px auto', maxWidth: 700, width: '100%' }}>
+            <Typography variant="h6" align="center" sx={{ mb: 3, color: 'primary.main', fontWeight: 700 }}>Choose an Interactive Element:</Typography>
+            <Grid container spacing={3} justifyContent="center">
               {[
-                { name: 'Quiz', icon: '🧠', color: '#4caf50', id: 'quiz' },
-                { name: 'Timeline', icon: '⏰', color: '#ff9800', id: 'timeline' },
-                { name: 'Mind Map', icon: '🗺️', color: '#9c27b0', id: 'mindmap' },
-                { name: 'Flashcards', icon: '📚', color: '#f44336', id: 'flashcards' }
+                { name: 'Quiz', icon: '🧠', color: 'success.main', id: 'quiz' },
+                { name: 'Timeline', icon: '⏰', color: 'warning.main', id: 'timeline' },
+                { name: 'Mind Map', icon: '🗺️', color: 'secondary.main', id: 'mindmap' },
+                { name: 'Flashcards', icon: '📚', color: 'error.main', id: 'flashcards' }
               ].map((option) => (
-                <button
-                  key={option.id}
-                  onClick={() => handleOptionClick(option.id)}
-                  style={{ 
-                    background: `linear-gradient(45deg, ${option.color}, ${option.color}dd)`, 
-                    color: 'white', 
-                    border: 'none', 
-                    borderRadius: '15px', 
-                    padding: '20px', 
-                    fontSize: '16px', 
-                    fontWeight: 'bold', 
-                    cursor: 'pointer', 
-                    transition: 'transform 0.2s ease', 
-                    textAlign: 'center' 
-                  }}
-                  onMouseOver={e => e.currentTarget.style.transform = 'translateY(-3px)'}
-                  onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
-                >
-                  <div style={{ fontSize: '2rem', marginBottom: '10px' }}>{option.icon}</div>
-                  {option.name}
-                </button>
+                <Grid item xs={12} sm={6} md={3} key={option.id}>
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    onClick={() => handleOptionClick(option.id)}
+                    sx={{
+                      borderRadius: 3,
+                      fontWeight: 700,
+                      fontSize: '1.1rem',
+                      py: 3,
+                      bgcolor: option.color,
+                      color: '#fff',
+                      boxShadow: 2,
+                      '&:hover': { bgcolor: option.color, opacity: 0.9 },
+                      display: 'flex', flexDirection: 'column', gap: 1
+                    }}
+                  >
+                    <span style={{ fontSize: '2rem' }}>{option.icon}</span>
+                    {option.name}
+                  </Button>
+                </Grid>
               ))}
-            </div>
-          </div>
+            </Grid>
+          </Paper>
         )}
-
         {/* Interactive Components */}
         {activeQuiz && (
           <QuizComponent quizData={activeQuiz} isOpen={isQuizOpen} onClose={handleQuizClose} onComplete={() => {}} />
@@ -425,52 +368,83 @@ export const InteractivePage: React.FC = () => {
         {activeFlashcard && (
           <FlashcardComponent flashcardData={activeFlashcard} isOpen={isFlashcardOpen} onClose={handleFlashcardClose} onComplete={() => {}} />
         )}
-      </div>
-
+      </Box>
       {/* Right Sidebar: Interactive History */}
-      <div style={{ width: 320, background: 'rgba(30,30,30,0.98)', borderLeft: '1px solid #222', minHeight: '100vh', position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '24px 16px 0 16px', flex: 1, overflowY: 'auto' }}>
-          <div style={{ fontWeight: 'bold', color: '#ff9800', marginBottom: 18, fontSize: 20 }}>Interactive History</div>
+      <Box sx={{ width: 320, bgcolor: 'background.default', borderLeft: 1, borderColor: 'divider', minHeight: '100vh', position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ p: 3, flex: 1, overflowY: 'auto' }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: 'warning.main', mb: 2 }}>Interactive History</Typography>
           {historyLoading ? (
-            <div style={{ color: '#bbb', fontSize: 15 }}>Loading...</div>
+            <Typography color="text.secondary">Loading...</Typography>
           ) : interactiveHistory.length === 0 ? (
-            <div style={{ color: '#bbb', fontSize: 15 }}>No interactive history yet.</div>
+            <Typography color="text.secondary">No interactive history yet.</Typography>
           ) : (
-            <>
+            <List>
               {interactiveHistory.map((entry, idx) => (
-                <div key={entry.id} style={{ padding: '10px 8px', borderRadius: 8, marginBottom: 8, background: '#181818', color: '#fff', fontWeight: 500, fontSize: 15, display: 'flex', flexDirection: 'column', gap: 2, cursor: 'pointer', borderLeft: `3px solid ${entry.content_type === 'quiz' ? '#4caf50' : entry.content_type === 'timeline' ? '#ff9800' : entry.content_type === 'mindmap' ? '#9c27b0' : '#f44336'}` }} onClick={() => handleHistoryClick(entry)}>
-                  <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{entry.content_type}</span>
-                  <span style={{ color: '#bbb', fontSize: 13 }}>Topics: {entry.topics.join(', ')}</span>
-                  <span style={{ color: '#888', fontSize: 12 }}>{formatDate(entry.created_at)}</span>
-                </div>
+                <ListItem
+                  key={entry.id}
+                  button
+                  onClick={() => handleHistoryClick(entry)}
+                  sx={{
+                    borderLeft: 3,
+                    borderColor:
+                      entry.content_type === 'quiz'
+                        ? 'success.main'
+                        : entry.content_type === 'timeline'
+                        ? 'warning.main'
+                        : entry.content_type === 'mindmap'
+                        ? 'secondary.main'
+                        : 'error.main',
+                    bgcolor: 'background.paper',
+                    borderRadius: 2,
+                    mb: 1,
+                  }}
+                >
+                  <ListItemText
+                    primary={<Typography fontWeight={600} textTransform="capitalize">{entry.content_type}</Typography>}
+                    secondary={<>
+                      <Typography variant="body2" color="text.secondary">Topics: {entry.topics.join(', ')}</Typography>
+                      <Typography variant="caption" color="text.disabled">{formatDate(entry.created_at)}</Typography>
+                    </>}
+                  />
+                </ListItem>
               ))}
-            </>
+            </List>
           )}
-        </div>
-      </div>
-
+        </Box>
+      </Box>
       {/* Topic Selection Modal */}
-      {showTopicModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#222', borderRadius: '18px', padding: '40px 30px', minWidth: 340, maxWidth: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.25)', color: '#fff', textAlign: 'center', position: 'relative' }}>
-            <h2 style={{ color: '#ff9800', marginBottom: 18 }}>🎯 Select Topics</h2>
-            <p style={{ color: '#bbb', marginBottom: 24 }}>Choose one or more topics to generate {selectedInteractiveType}:</p>
-            {topics.length === 0 ? (
-              <div style={{ color: '#ff9800', marginBottom: 24 }}>No topics found for this project.</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24, maxHeight: 260, overflowY: 'auto', paddingRight: 4 }}>
-                {topics.map((topic, idx) => (
-                  <button key={idx} onClick={() => handleTopicSelect(topic)} style={{ background: selectedTopics.includes(topic) ? 'linear-gradient(45deg, #4caf50, #66bb6a)' : 'rgba(255,255,255,0.08)', color: selectedTopics.includes(topic) ? 'white' : '#e0dede', border: selectedTopics.includes(topic) ? '2px solid #4caf50' : '2px solid #16213e', borderRadius: 10, padding: '12px', fontSize: 15, cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'normal', wordBreak: 'break-word', textAlign: 'left' }}>{selectedTopics.includes(topic) && '✅ '}{topic}</button>
-                ))}
-              </div>
-            )}
-            <button onClick={handleTopicModalProceed} disabled={selectedTopics.length === 0} style={{ background: selectedTopics.length === 0 ? 'linear-gradient(45deg, #666, #888)' : 'linear-gradient(45deg, #ff9800, #ffb74d)', color: 'white', border: 'none', borderRadius: 12, padding: '14px 32px', fontSize: 16, fontWeight: 'bold', cursor: selectedTopics.length === 0 ? 'not-allowed' : 'pointer', marginTop: 10, transition: 'all 0.2s' }}>Generate {selectedInteractiveType}</button>
-            <button onClick={() => setShowTopicModal(false)} style={{ background: 'none', color: '#bbb', border: 'none', fontSize: 15, marginTop: 18, cursor: 'pointer', textDecoration: 'underline' }}>Cancel</button>
-          </div>
-        </div>
-      )}
-
-      <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-    </div>
+      <Dialog open={showTopicModal} onClose={() => setShowTopicModal(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Select Topics</DialogTitle>
+        <DialogContent>
+          {topics.length === 0 ? (
+            <Typography color="warning.main" sx={{ mb: 2 }}>No topics found for this project.</Typography>
+          ) : (
+            <List>
+              {topics.map((topic, idx) => (
+                <ListItemButton
+                  key={idx}
+                  selected={selectedTopics.includes(topic)}
+                  onClick={() => handleTopicSelect(topic)}
+                  sx={{ borderRadius: 2, mb: 1 }}
+                >
+                  <ListItemText primary={selectedTopics.includes(topic) ? `✅ ${topic}` : topic} />
+                </ListItemButton>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowTopicModal(false)}>Cancel</Button>
+          <Button
+            onClick={handleTopicModalProceed}
+            variant="contained"
+            disabled={selectedTopics.length === 0}
+            color="primary"
+          >
+            Generate {selectedInteractiveType}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }; 

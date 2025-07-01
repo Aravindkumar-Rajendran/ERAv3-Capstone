@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "@headlessui/react": "^2.2.4",
-    "date-fns": "^4.1.0"
-  }
-}

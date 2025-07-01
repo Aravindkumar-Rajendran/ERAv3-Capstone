@@ -1,6 +1,30 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import {
+  Box,
+  Typography,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  List,
+  ListItemButton,
+  ListItemText,
+  Chip,
+  Alert,
+  Snackbar,
+  CircularProgress,
+} from '@mui/material';
+import { ChatMessage, ChatInput } from '../components/chat';
+import { Upload as UploadIcon } from '@mui/icons-material';
+
+interface Message {
+  sender: 'user' | 'whizard';
+  text: string;
+}
 
 export const WhizardPage = () => {
   // Upload state
@@ -12,7 +36,7 @@ export const WhizardPage = () => {
   const [topics, setTopics] = useState<string[]>([]);
   const [showTopics, setShowTopics] = useState(false);
   // Chat state
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<Message[]>([
     { sender: 'whizard', text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.' }
   ]);
   const [input, setInput] = useState('');
@@ -79,21 +103,31 @@ export const WhizardPage = () => {
           });
           if (!response.ok) throw new Error('Failed to fetch chat history');
           const data = await response.json();
-          let msgs = data.messages || [];
-          msgs = msgs.map((msg: any) => ({
-            sender: msg.type === 'user' ? 'user' : 'whizard',
+          const msgs = (data.messages || []).map((msg: { type: string; content: string }) => ({
+            sender: msg.type === 'user' ? 'user' as const : 'whizard' as const,
             text: msg.content
           }));
-          const welcomeMsg = { sender: 'whizard', text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.' };
+          const welcomeMsg: Message = {
+            sender: 'whizard',
+            text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.'
+          };
           const last10 = msgs.slice(-10);
           setMessages([welcomeMsg, ...last10]);
         } catch (err) {
-          setMessages([{ sender: 'whizard', text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.' }]);
+          const defaultMsg: Message = {
+            sender: 'whizard',
+            text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.'
+          };
+          setMessages([defaultMsg]);
         }
       };
       fetchChatHistory();
     } else if (!conversationId) {
-      setMessages([{ sender: 'whizard', text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.' }]);
+      const defaultMsg: Message = {
+        sender: 'whizard',
+        text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.'
+      };
+      setMessages([defaultMsg]);
     }
   }, [projectId, conversationId, token]);
 
@@ -126,16 +160,22 @@ export const WhizardPage = () => {
       });
       if (!response.ok) throw new Error('Failed to fetch chat history');
       const data = await response.json();
-      let msgs = data.messages || [];
-      msgs = msgs.map((msg: any) => ({
-        sender: msg.type === 'user' ? 'user' : 'whizard',
+      const msgs = (data.messages || []).map((msg: { type: string; content: string }) => ({
+        sender: msg.type === 'user' ? 'user' as const : 'whizard' as const,
         text: msg.content
       }));
-      const welcomeMsg = { sender: 'whizard', text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.' };
+      const welcomeMsg: Message = {
+        sender: 'whizard',
+        text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.'
+      };
       const last10 = msgs.slice(-10);
       setMessages([welcomeMsg, ...last10]);
     } catch (err) {
-      setMessages([{ sender: 'whizard', text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.' }]);
+      const defaultMsg: Message = {
+        sender: 'whizard',
+        text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.'
+      };
+      setMessages([defaultMsg]);
     }
   };
 
@@ -213,31 +253,47 @@ export const WhizardPage = () => {
 
   // Chat send handler
   const handleSend = async () => {
-    if (!input.trim() || !conversationId) return;
-    if (input.trim().length < 2) {
-      alert('Please provide at least 2 characters.');
-      return;
-    }
-    const userMsg = { sender: 'user', text: input };
-    setMessages((msgs) => [...msgs, userMsg]);
+    if (!input.trim() || isChatLoading) return;
+
+    const userMessage: Message = {
+      sender: 'user',
+      text: input.trim()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsChatLoading(true);
+
     try {
-      const formData = new FormData();
-      formData.append('user_input', input);
-      formData.append('conversation_id', conversationId);
-      if (projectId) formData.append('project_id', projectId);
       const response = await fetch('http://localhost:8000/chat', {
         method: 'POST',
-        body: formData,
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          message: input.trim(),
+          conversation_id: conversationId
+        })
       });
-      if (!response.ok) throw new Error('Chat failed');
+
+      if (!response.ok) throw new Error('Chat request failed');
       const data = await response.json();
-      setMessages((msgs) => [...msgs, { sender: 'whizard', text: data.response }]);
-    } catch (e) {
-      setMessages((msgs) => [...msgs, { sender: 'whizard', text: 'Sorry, something went wrong.' }]);
+
+      const botMessage: Message = {
+        sender: 'whizard',
+        text: data.response
+      };
+
+      setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      const errorMessage: Message = {
+        sender: 'whizard',
+        text: 'Sorry, I encountered an error. Please try again.'
+      };
+      setMessages(prev => [...prev, errorMessage]);
     }
+
     setIsChatLoading(false);
   };
 
@@ -320,194 +376,193 @@ export const WhizardPage = () => {
     navigate('/projects');
   };
 
-  // Upload form (reusable for inline and modal)
-  const UploadForm = (
-    <div style={{ width: '100%', maxWidth: 700, margin: '0 auto', background: 'rgba(255,255,255,0.05)', borderRadius: '15px', padding: '30px', border: '1px solid rgba(255,255,255,0.1)' }}>
-      <h2 style={{ margin: '0 0 20px 0', color: '#4caf50' }}>📝 Enter Your Learning Content</h2>
-      {/* Text Input */}
-      <div style={{ marginBottom: '20px' }}>
-        <label style={{ display: 'block', marginBottom: '10px', color: '#4caf50' }}>Option 1: Paste Text Content</label>
-        <textarea value={userContent} onChange={(e) => {
-          if (e.target.value.length > 5000) {
-            setNotification('Text input must be 5000 characters or less.');
-            setTimeout(() => setNotification(null), 3000);
-            return;
-          }
-          setUserContent(e.target.value); if (e.target.value.trim()) { setSelectedFile(null); setYoutubeUrl(''); } }} placeholder="Paste your text content here... (articles, documents, notes, etc.)" style={{ width: '100%', height: '150px', background: 'rgba(0,0,0,0.3)', border: '2px solid #16213e', borderRadius: '10px', padding: '15px', color: '#e0dede', fontSize: '16px', fontFamily: 'Arial, sans-serif', resize: 'vertical' }} />
-        <div style={{ color: userContent.length > 5000 ? 'red' : '#888', fontSize: 14, marginTop: 4 }}>{userContent.length}/5000 characters</div>
-      </div>
-      {/* OR Separator */}
-      <div style={{ textAlign: 'center', margin: '20px 0', color: '#888' }}><span style={{ background: 'rgba(255,255,255,0.05)', padding: '5px 15px', borderRadius: '15px' }}>OR</span></div>
-      {/* File Upload */}
-      <div>
-        <label style={{ display: 'block', marginBottom: '10px', color: '#4caf50' }}>Option 2: Upload File (PDF, TXT)</label>
-        <div style={{ border: '2px dashed #16213e', borderRadius: '10px', padding: '20px', textAlign: 'center', background: 'rgba(0,0,0,0.2)', cursor: 'pointer', transition: 'all 0.3s ease' }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const files = e.dataTransfer.files; if (files.length > 0) { if (files[0].size > 5 * 1024 * 1024) { setNotification('PDF file size must be 5 MB or less.'); setTimeout(() => setNotification(null), 3000); return; } setSelectedFile(files[0]); setUserContent(''); setYoutubeUrl(''); } }}>
-          <input type="file" id="file-upload" accept=".pdf,.txt" onChange={(e) => { if (e.target.files && e.target.files[0]) { if (e.target.files[0].size > 5 * 1024 * 1024) { setNotification('PDF file size must be 5 MB or less.'); setTimeout(() => setNotification(null), 3000); return; } setSelectedFile(e.target.files[0]); setUserContent(''); setYoutubeUrl(''); } }} style={{ display: 'none' }} />
-          <label htmlFor="file-upload" style={{ cursor: 'pointer', color: '#4caf50' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📄</div>
-            {selectedFile ? (
-              <div>
-                <div style={{ color: '#4caf50', fontWeight: 'bold' }}>✅ {selectedFile.name}</div>
-                <div style={{ color: '#888', fontSize: '14px' }}>Click to change file</div>
-              </div>
-            ) : (
-              <div>
-                <div>Click to upload or drag & drop</div>
-                <div style={{ color: '#888', fontSize: '14px' }}>Supported: PDF, TXT files</div>
-              </div>
-            )}
-          </label>
-        </div>
-      </div>
-      {/* OR Separator */}
-      <div style={{ textAlign: 'center', margin: '20px 0', color: '#888' }}><span style={{ background: 'rgba(255,255,255,0.05)', padding: '5px 15px', borderRadius: '15px' }}>OR</span></div>
-      {/* YouTube URL Input */}
-      <div>
-        <label style={{ display: 'block', marginBottom: '10px', color: '#4caf50' }}>Option 3: YouTube Video URL</label>
-        <input type="url" value={youtubeUrl} onChange={(e) => { setYoutubeUrl(e.target.value); if (e.target.value.trim()) { setUserContent(''); setSelectedFile(null); } }} placeholder="Paste YouTube video URL here... (e.g., https://www.youtube.com/watch?v=...)" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '2px solid #16213e', borderRadius: '10px', padding: '15px', color: '#e0dede', fontSize: '16px', fontFamily: 'Arial, sans-serif' }} />
-        {youtubeUrl && (<div style={{ marginTop: '10px', color: '#4caf50', fontSize: '14px' }}>✅ YouTube URL ready for processing</div>)}
-      </div>
-      {/* Upload/Reset Buttons */}
-      <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginTop: '30px' }}>
-        <button onClick={handleUpload} disabled={isUploading} style={{ background: isUploading ? 'linear-gradient(45deg, #666, #888)' : 'linear-gradient(45deg, #4caf50, #66bb6a)', color: 'white', border: 'none', borderRadius: '25px', padding: '15px 40px', fontSize: '18px', fontWeight: 'bold', cursor: isUploading ? 'not-allowed' : 'pointer', transition: 'all 0.3s ease', boxShadow: '0 4px 20px rgba(76, 175, 80, 0.3)' }}>{isUploading ? '🔄 Uploading...' : 'Upload'}</button>
-        <button onClick={handleReset} style={{ background: 'linear-gradient(45deg, #ff5722, #ff7043)', color: 'white', border: 'none', borderRadius: '25px', padding: '15px 30px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.3s ease', boxShadow: '0 4px 20px rgba(255, 87, 34, 0.3)' }}>Reset</button>
-      </div>
-    </div>
-  );
-
   return (
-    <div style={{ height: '100vh', background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #2d2d2d 100%)', color: '#fff', fontFamily: 'Arial, sans-serif', position: 'relative', display: 'flex', flexDirection: 'row', alignItems: 'stretch', overflow: 'hidden' }}>
+    <Box sx={{ height: '100vh', display: 'flex', bgcolor: 'background.default' }}>
       {/* Left Sidebar: Sources & Upload */}
-      <div style={{ width: 320, background: 'rgba(30,30,30,0.98)', borderRight: '1px solid #222', height: '100vh', position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column' }}>
-        {/* Back to Projects Button */}
-        <button onClick={handleBack} style={{ width: '100%', background: 'linear-gradient(45deg, #2196f3, #64b5f6)', color: 'white', border: 'none', borderRadius: '8px', padding: '12px 0', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(33,150,243,0.15)', marginBottom: 18, marginTop: 18 }}>
-          ← Back to Projects
-        </button>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 16px 0 16px' }}>
-          <div style={{ fontWeight: 'bold', color: '#4caf50', marginBottom: 18, fontSize: 20 }}>Sources</div>
+      <Box sx={{ width: 280, bgcolor: 'grey.100', borderRight: 1, borderColor: 'divider', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>Sources</Typography>
+        <List dense sx={{ flexGrow: 1, bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1, mb: 2 }}>
           {sources.length === 0 ? (
-            // Show upload options directly
-            <div>{UploadForm}</div>
+            <ListItemText primary="No sources yet." sx={{ px: 2, py: 1, color: 'text.secondary' }} />
           ) : (
-            <>
-              {/* List of sources */}
-              <div style={{ marginBottom: 24 }}>
-                {sources.map((src, idx) => (
-                  <div key={idx} style={{ padding: '10px 8px', borderRadius: 8, marginBottom: 8, background: '#181818', color: '#fff', fontWeight: 500, fontSize: 15, display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => setSourcePreview(src)}>
-                    <span role="img" aria-label="icon">{src.type === 'pdf' ? '📄' : src.type === 'youtube' ? '🎬' : '📝'}</span>
-                    <span>{src.name || 'Source Name'}</span>
-                  </div>
-                ))}
-              </div>
-            </>
+            sources.map((src, idx) => (
+              <ListItemButton key={src.id || idx} selected={false} sx={{ borderRadius: 1, mb: 0.5 }}>
+                <ListItemText primary={src.name || src.filename || `Source ${idx + 1}`} secondary={src.type || ''} />
+              </ListItemButton>
+            ))
           )}
-        </div>
-        {/* Upload New Source Button (if sources exist) */}
-        {sources.length > 0 && (
-          <div style={{ padding: 16, borderTop: '1px solid #222', background: 'rgba(30,30,30,0.98)' }}>
-            <button
-              onClick={() => {
-                if (sources.length >= 10) {
-                  setNotification('You can only have up to 10 sources per project.');
-                  setTimeout(() => setNotification(null), 3000);
-                } else {
-                  setShowUploadModal(true);
-                }
-              }}
-              style={{ width: '100%', background: 'linear-gradient(45deg, #4caf50, #66bb6a)', color: 'white', border: 'none', borderRadius: '10px', padding: '14px 0', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 8px rgba(76, 175, 80, 0.15)' }}
-            >
-              Upload New Source
-            </button>
-          </div>
-        )}
-      </div>
+        </List>
+        <Button
+          variant="contained"
+          startIcon={<UploadIcon />}
+          onClick={() => setShowUploadModal(true)}
+          sx={{ borderRadius: 2, fontWeight: 600 }}
+        >
+          Upload Sources
+        </Button>
+      </Box>
 
-      {/* Main Content (center) */}
-      <div style={{ flex: 1, height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
-        {/* Logout Button */}
-        <button onClick={handleLogout} style={{ position: 'absolute', top: 20, right: 20, background: 'linear-gradient(45deg, #f44336, #e57373)', color: 'white', border: 'none', borderRadius: '8px', padding: '10px 20px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(244,67,54,0.15)', zIndex: 10 }}>Logout</button>
-        {/* Header */}
-        <div style={{ background: 'rgba(0,0,0,0.5)', padding: '20px', borderBottom: '2px solid #4caf50', width: '100%', flexShrink: 0 }}>
-          <h1 style={{ margin: 0, textAlign: 'center', fontSize: '2.5rem', background: 'linear-gradient(45deg, #4caf50, #66bb6a, #81c784)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 0 20px rgba(76, 175, 80, 0.3)' }}>🧙‍♂️ WhizardLM</h1>
-          <p style={{ textAlign: 'center', margin: '10px 0 0 0', opacity: 0.8, fontSize: '1.1rem' }}>AI-Powered Interactive Learning Platform</p>
-        </div>
-
-        {/* Chat Section */}
-        {conversationId && (
-          <div style={{ flex: 1, width: '100%', maxWidth: '700px', margin: '40px auto 0 auto', background: 'rgba(255,255,255,0.05)', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', position: 'relative', boxShadow: '0 4px 24px rgba(0,0,0,0.15)', height: 'calc(100vh - 180px)' }}>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '30px 30px 90px 30px' }}>
-              {messages.map((msg, idx) => (
-                <div key={idx} ref={el => { messageRefs.current[idx] = el; }} style={{ display: 'flex', flexDirection: msg.sender === 'user' ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: '18px' }}>
-                  {/* Avatar */}
-                  <div style={{ width: 48, height: 48, borderRadius: '50%', background: msg.sender === 'user' ? '#4caf50' : '#16213e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, color: '#fff', margin: msg.sender === 'user' ? '0 0 0 16px' : '0 16px 0 0', border: msg.sender === 'user' ? '2px solid #4caf50' : '2px solid #16213e' }}>{msg.sender === 'user' ? '🧑' : '🧙‍♂️'}</div>
-                  {/* Message bubble */}
-                  <div style={{ background: msg.sender === 'user' ? 'linear-gradient(45deg, #4caf50, #66bb6a)' : 'linear-gradient(45deg, #16213e, #0f3460)', color: '#fff', borderRadius: '16px', padding: '16px 22px', maxWidth: '70%', fontSize: '1.1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', wordBreak: 'break-word', textAlign: 'left' }}>{msg.text}</div>
-                </div>
-              ))}
-              <div ref={chatEndRef} />
-            </div>
-            {/* Input area */}
-            <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', background: 'rgba(0,0,0,0.7)', borderBottomLeftRadius: '15px', borderBottomRightRadius: '15px', padding: '18px 30px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleInputKeyDown} placeholder="Type your question..." style={{ flex: 1, minHeight: 40, maxHeight: 120, borderRadius: 10, border: '2px solid #16213e', padding: '12px 16px', fontSize: 16, color: '#fff', background: 'rgba(0,0,0,0.2)', resize: 'vertical', outline: 'none' }} disabled={isChatLoading} />
-              <button onClick={handleSend} disabled={isChatLoading || !input.trim()} style={{ background: isChatLoading || !input.trim() ? 'linear-gradient(45deg, #666, #888)' : 'linear-gradient(45deg, #4caf50, #66bb6a)', color: 'white', border: 'none', borderRadius: '10px', padding: '12px 28px', fontSize: '16px', fontWeight: 'bold', cursor: isChatLoading || !input.trim() ? 'not-allowed' : 'pointer', transition: 'all 0.3s ease', boxShadow: '0 2px 8px rgba(76, 175, 80, 0.15)' }}>{isChatLoading ? '...' : 'Send'}</button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Right Sidebar: Chat History */}
-      <div style={{ width: 260, background: 'rgba(30,30,30,0.98)', borderLeft: '1px solid #222', height: '100vh', position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 10px 0 10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <div style={{ fontWeight: 'bold', color: '#4caf50', fontSize: 18 }}>Chat History</div>
-            <button onClick={handleNewChat} style={{ background: 'linear-gradient(45deg, #2196f3, #64b5f6)', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 14px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer', marginLeft: 8 }}>+ New Chat</button>
-          </div>
-          {conversations.length === 0 && <div style={{ color: '#bbb', fontSize: 14 }}>No conversations yet.</div>}
-          {conversations.map((conv, idx) => (
-            <div key={conv.conversation_id} onClick={() => handleConversationClick(conv.conversation_id)} style={{ cursor: 'pointer', padding: '10px 8px', borderRadius: 8, marginBottom: 8, background: '#181818', color: '#fff', fontWeight: 500, fontSize: 15, display: 'flex', flexDirection: 'column', gap: 2, borderLeft: '3px solid #4caf50', opacity: 0.92, transition: 'background 0.2s' }}>
-              <span style={{ fontWeight: 600 }}>{conv.title || `Conversation ${conv.conversation_id.slice(0, 8)}`}</span>
-              <span style={{ color: '#bbb', fontSize: 12 }}>{conv.updated_at ? new Date(conv.updated_at).toLocaleString() : ''}</span>
-            </div>
+      {/* Main Chat Area */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', minWidth: 0 }}>
+        {/* Chat Messages */}
+        <Box
+          sx={{
+            flexGrow: 1,
+            overflowY: 'auto',
+            pt: 2,
+            pb: 10,
+            px: 3,
+            bgcolor: 'background.default',
+          }}
+        >
+          {messages.map((message, index) => (
+            <ChatMessage
+              key={index}
+              message={message}
+            />
           ))}
-        </div>
-        {/* Generate Magic Button at the bottom right */}
-        <div style={{ padding: 16, borderTop: '1px solid #222', background: 'rgba(30,30,30,0.98)', display: 'flex', justifyContent: 'flex-end' }}>
-          <button onClick={handleGenerateMagic} style={{ background: 'linear-gradient(45deg, #ff9800, #ffb74d)', color: 'white', border: 'none', borderRadius: '10px', padding: '12px 28px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.3s ease', boxShadow: '0 2px 8px rgba(255, 152, 0, 0.15)' }}>✨ Interactive</button>
-        </div>
-      </div>
+          <div ref={chatEndRef} />
+        </Box>
 
-      {showUploadModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <div style={{ background: '#222', borderRadius: 16, padding: 32, minWidth: 400, maxWidth: 700, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
-            {UploadForm}
-            <button onClick={() => setShowUploadModal(false)} style={{ marginTop: 24, background: '#f44336', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 'bold', fontSize: 16, cursor: 'pointer' }}>Cancel</button>
-          </div>
-        </div>
-      )}
+        {/* Chat Input */}
+        <Box sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, px: 3, pb: 2, bgcolor: 'background.default' }}>
+          <ChatInput
+            value={input}
+            onChange={setInput}
+            onSend={handleSend}
+            isLoading={isChatLoading}
+            onKeyDown={handleInputKeyDown}
+          />
+        </Box>
+      </Box>
 
-      {/* Notification (disappearing) */}
-      {notification && (
-        <div style={{
-          position: 'fixed',
-          top: 30,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: '#323232',
-          color: '#fff',
-          padding: '16px 32px',
-          borderRadius: 8,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
-          zIndex: 2000,
-          fontSize: 18,
-          fontWeight: 'bold',
-          opacity: 0.95
-        }}>
+      {/* Right Sidebar: Chat History & Interactive */}
+      <Box sx={{ width: 320, bgcolor: 'grey.50', borderLeft: 1, borderColor: 'divider', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>Chat History</Typography>
+        <List dense sx={{ flexGrow: 1, bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1, mb: 2, maxHeight: 320, overflowY: 'auto' }}>
+          {conversations.length === 0 ? (
+            <ListItemText primary="No chat history yet." sx={{ px: 2, py: 1, color: 'text.secondary' }} />
+          ) : (
+            conversations.map((conv, idx) => (
+              <ListItemButton key={conv.id || idx} onClick={() => handleConversationClick(conv.id)} sx={{ borderRadius: 1, mb: 0.5 }}>
+                <ListItemText primary={conv.title || `Conversation ${idx + 1}`} secondary={conv.created_at ? new Date(conv.created_at).toLocaleString() : ''} />
+              </ListItemButton>
+            ))
+          )}
+        </List>
+        <Button
+          variant="outlined"
+          color="primary"
+          onClick={handleGenerateMagic}
+          sx={{ borderRadius: 2, fontWeight: 600, mt: 2 }}
+        >
+          Interactive
+        </Button>
+      </Box>
+
+      {/* Upload Modal */}
+      <Dialog
+        open={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Upload Content</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+            <TextField
+              multiline
+              rows={4}
+              placeholder="Enter text content..."
+              value={userContent}
+              onChange={(e) => setUserContent(e.target.value)}
+              fullWidth
+            />
+            
+            <Button
+              variant="outlined"
+              component="label"
+              startIcon={<UploadIcon />}
+            >
+              Upload PDF
+              <input
+                type="file"
+                hidden
+                accept=".pdf"
+                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+              />
+            </Button>
+            
+            {selectedFile && (
+              <Typography variant="body2" color="text.secondary">
+                Selected file: {selectedFile.name}
+              </Typography>
+            )}
+
+            <TextField
+              placeholder="Enter YouTube URL..."
+              value={youtubeUrl}
+              onChange={(e) => setYoutubeUrl(e.target.value)}
+              fullWidth
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowUploadModal(false)}>Cancel</Button>
+          <Button
+            onClick={handleUpload}
+            variant="contained"
+            disabled={isUploading}
+          >
+            {isUploading ? <CircularProgress size={24} /> : 'Upload'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Topics Modal */}
+      <Dialog
+        open={showTopicModal}
+        onClose={() => setShowTopicModal(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Select Topics</DialogTitle>
+        <DialogContent>
+          <List>
+            {topics.map((topic, index) => (
+              <ListItemButton
+                key={index}
+                selected={selectedTopics.includes(topic)}
+                onClick={() => handleTopicSelect(topic)}
+              >
+                <ListItemText primary={topic} />
+              </ListItemButton>
+            ))}
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowTopicModal(false)}>Cancel</Button>
+          <Button
+            onClick={handleTopicModalProceed}
+            variant="contained"
+            disabled={selectedTopics.length === 0}
+          >
+            Proceed
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Notification */}
+      <Snackbar
+        open={!!notification}
+        autoHideDuration={3000}
+        onClose={() => setNotification(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity="error" onClose={() => setNotification(null)}>
           {notification}
-        </div>
-      )}
-    </div>
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 }; 

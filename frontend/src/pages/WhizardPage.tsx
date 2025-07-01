@@ -141,6 +141,18 @@ export const WhizardPage = () => {
 
   // Upload handler (used in both inline and modal)
   const handleUpload = async () => {
+    // File size check (PDF)
+    if (selectedFile && selectedFile.size > 5 * 1024 * 1024) {
+      setNotification('PDF file size must be 5 MB or less.');
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+    // Text length check
+    if (userContent && userContent.length > 5000) {
+      setNotification('Text input must be 5000 characters or less.');
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
     if (!userContent.trim() && !selectedFile && !youtubeUrl.trim()) {
       alert('Please enter some content, upload a file, or provide a YouTube URL first!');
       return;
@@ -305,15 +317,22 @@ export const WhizardPage = () => {
       {/* Text Input */}
       <div style={{ marginBottom: '20px' }}>
         <label style={{ display: 'block', marginBottom: '10px', color: '#4caf50' }}>Option 1: Paste Text Content</label>
-        <textarea value={userContent} onChange={(e) => { setUserContent(e.target.value); if (e.target.value.trim()) { setSelectedFile(null); setYoutubeUrl(''); } }} placeholder="Paste your text content here... (articles, documents, notes, etc.)" style={{ width: '100%', height: '150px', background: 'rgba(0,0,0,0.3)', border: '2px solid #16213e', borderRadius: '10px', padding: '15px', color: '#e0dede', fontSize: '16px', fontFamily: 'Arial, sans-serif', resize: 'vertical' }} />
+        <textarea value={userContent} onChange={(e) => {
+          if (e.target.value.length > 5000) {
+            setNotification('Text input must be 5000 characters or less.');
+            setTimeout(() => setNotification(null), 3000);
+            return;
+          }
+          setUserContent(e.target.value); if (e.target.value.trim()) { setSelectedFile(null); setYoutubeUrl(''); } }} placeholder="Paste your text content here... (articles, documents, notes, etc.)" style={{ width: '100%', height: '150px', background: 'rgba(0,0,0,0.3)', border: '2px solid #16213e', borderRadius: '10px', padding: '15px', color: '#e0dede', fontSize: '16px', fontFamily: 'Arial, sans-serif', resize: 'vertical' }} />
+        <div style={{ color: userContent.length > 5000 ? 'red' : '#888', fontSize: 14, marginTop: 4 }}>{userContent.length}/5000 characters</div>
       </div>
       {/* OR Separator */}
       <div style={{ textAlign: 'center', margin: '20px 0', color: '#888' }}><span style={{ background: 'rgba(255,255,255,0.05)', padding: '5px 15px', borderRadius: '15px' }}>OR</span></div>
       {/* File Upload */}
       <div>
         <label style={{ display: 'block', marginBottom: '10px', color: '#4caf50' }}>Option 2: Upload File (PDF, TXT)</label>
-        <div style={{ border: '2px dashed #16213e', borderRadius: '10px', padding: '20px', textAlign: 'center', background: 'rgba(0,0,0,0.2)', cursor: 'pointer', transition: 'all 0.3s ease' }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const files = e.dataTransfer.files; if (files.length > 0) { setSelectedFile(files[0]); setUserContent(''); setYoutubeUrl(''); } }}>
-          <input type="file" id="file-upload" accept=".pdf,.txt" onChange={(e) => { if (e.target.files && e.target.files[0]) { setSelectedFile(e.target.files[0]); setUserContent(''); setYoutubeUrl(''); } }} style={{ display: 'none' }} />
+        <div style={{ border: '2px dashed #16213e', borderRadius: '10px', padding: '20px', textAlign: 'center', background: 'rgba(0,0,0,0.2)', cursor: 'pointer', transition: 'all 0.3s ease' }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const files = e.dataTransfer.files; if (files.length > 0) { if (files[0].size > 5 * 1024 * 1024) { setNotification('PDF file size must be 5 MB or less.'); setTimeout(() => setNotification(null), 3000); return; } setSelectedFile(files[0]); setUserContent(''); setYoutubeUrl(''); } }}>
+          <input type="file" id="file-upload" accept=".pdf,.txt" onChange={(e) => { if (e.target.files && e.target.files[0]) { if (e.target.files[0].size > 5 * 1024 * 1024) { setNotification('PDF file size must be 5 MB or less.'); setTimeout(() => setNotification(null), 3000); return; } setSelectedFile(e.target.files[0]); setUserContent(''); setYoutubeUrl(''); } }} style={{ display: 'none' }} />
           <label htmlFor="file-upload" style={{ cursor: 'pointer', color: '#4caf50' }}>
             <div style={{ fontSize: '2rem', marginBottom: '10px' }}>📄</div>
             {selectedFile ? (

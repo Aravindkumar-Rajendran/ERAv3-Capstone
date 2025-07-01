@@ -21,7 +21,7 @@ Tasks
         [x] UI controls for uploading new sources (text, YouTube URL, PDF)
         [x] Tailwind-based consistent styling for source list and modals
 
-[x] Revamp UI
-    [x] Create and maintain a continuously updated design notebook (design system) for WhiZardLM
-    [x] Tailwind-based consistent styling
-    [x] Beautify the UI (modern, intuitive, no special accessibility/i18n requirements)
+[ ] Revamp UI
+    [ ] Create and maintain a continuously updated design notebook (design system) for WhiZardLM
+    [ ] Tailwind-based consistent styling
+    [ ] Beautify the UI (modern, intuitive, no special accessibility/i18n requirements)

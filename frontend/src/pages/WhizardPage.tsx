@@ -199,6 +199,10 @@ export const WhizardPage = () => {
   // Chat send handler
   const handleSend = async () => {
     if (!input.trim() || !conversationId) return;
+    if (input.trim().length < 2) {
+      alert('Please provide at least 2 characters.');
+      return;
+    }
     const userMsg = { sender: 'user', text: input };
     setMessages((msgs) => [...msgs, userMsg]);
     setInput('');
@@ -232,27 +236,7 @@ export const WhizardPage = () => {
   // Handler to open topic selection modal (moved to sidebar)
   const handleGenerateMagic = async () => {
     if (!projectId) return;
-    try {
-      const response = await fetch(`http://localhost:8000/topics/${projectId}`, {
-        method: 'GET',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!response.ok) throw new Error('Failed to fetch topics');
-      const data = await response.json();
-      console.log('Fetched topics:', data.topics);
-      setTopics(data.topics || []);
-      // Set the conversation ID from the topics response if available
-      if (data.conversation_id) {
-        setConversationId(data.conversation_id);
-      }
-      setShowTopicModal(true);
-      setSelectedTopics([]);
-      if (!data.topics || data.topics.length === 0) {
-        alert('No topics found for this project. Please upload content or try another project.');
-      }
-    } catch (e) {
-      alert('Failed to fetch topics for this project.');
-    }
+    navigate('/interactive', { state: { projectId } });
   };
 
   // Topic selection
@@ -266,19 +250,9 @@ export const WhizardPage = () => {
 
   // Proceed to interactive page
   const handleTopicModalProceed = () => {
-    console.log('handleTopicModalProceed called with:', { selectedTopics, projectId });
     setShowTopicModal(false);
-    if (selectedTopics.length > 0) {
-      if (projectId) {
-        console.log('Navigating to interactive page with:', { selectedTopics, projectId });
-        navigate('/interactive', { state: { selectedTopics, projectId } });
-      } else {
-        console.error('No project found');
-        alert('No project found. Please select a project first.');
-      }
-    } else {
-      console.error('No topics selected');
-      alert('Please select at least one topic.');
+    if (selectedTopics.length > 0 && projectId) {
+      navigate('/interactive', { state: { selectedTopics, projectId } });
     }
   };
 
@@ -369,9 +343,13 @@ export const WhizardPage = () => {
   );
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #2d2d2d 100%)', color: '#fff', fontFamily: 'Arial, sans-serif', position: 'relative', display: 'flex', flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'flex-start', padding: 0 }}>
+    <div style={{ height: '100vh', background: 'linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #2d2d2d 100%)', color: '#fff', fontFamily: 'Arial, sans-serif', position: 'relative', display: 'flex', flexDirection: 'row', alignItems: 'stretch', overflow: 'hidden' }}>
       {/* Left Sidebar: Sources & Upload */}
-      <div style={{ width: 320, background: 'rgba(30,30,30,0.98)', borderRight: '1px solid #222', minHeight: '100vh', position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+      <div style={{ width: 320, background: 'rgba(30,30,30,0.98)', borderRight: '1px solid #222', height: '100vh', position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column' }}>
+        {/* Back to Projects Button */}
+        <button onClick={handleBack} style={{ width: '100%', background: 'linear-gradient(45deg, #2196f3, #64b5f6)', color: 'white', border: 'none', borderRadius: '8px', padding: '12px 0', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(33,150,243,0.15)', marginBottom: 18, marginTop: 18 }}>
+          ← Back to Projects
+        </button>
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px 16px 0 16px' }}>
           <div style={{ fontWeight: 'bold', color: '#4caf50', marginBottom: 18, fontSize: 20 }}>Sources</div>
           {sources.length === 0 ? (
@@ -397,40 +375,22 @@ export const WhizardPage = () => {
             <button onClick={() => setShowUploadModal(true)} style={{ width: '100%', background: 'linear-gradient(45deg, #4caf50, #66bb6a)', color: 'white', border: 'none', borderRadius: '10px', padding: '14px 0', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 8px rgba(76, 175, 80, 0.15)' }}>Upload New Source</button>
           </div>
         )}
-        {/* Upload Modal */}
-        {showUploadModal && (
-          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ background: '#222', borderRadius: '18px', padding: '40px 30px', minWidth: 340, maxWidth: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.25)', color: '#fff', textAlign: 'center', position: 'relative' }}>
-              {UploadForm}
-              <button onClick={() => setShowUploadModal(false)} style={{ background: 'none', color: '#bbb', border: 'none', fontSize: 15, marginTop: 18, cursor: 'pointer', textDecoration: 'underline' }}>Cancel</button>
-            </div>
-          </div>
-        )}
-        {/* Source Preview Modal */}
-        {sourcePreview && (
-          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ background: '#222', borderRadius: '18px', padding: '40px 30px', minWidth: 340, maxWidth: 520, boxShadow: '0 8px 32px rgba(0,0,0,0.25)', color: '#fff', textAlign: 'center', position: 'relative' }}>
-              <h3 style={{ color: '#4caf50', marginBottom: 12 }}>{sourcePreview.name || 'Source Preview'}</h3>
-              {/* TODO: Render preview based on type */}
-              <div style={{ color: '#bbb', fontSize: 15, marginBottom: 18 }}>[Preview not implemented]</div>
-              <button onClick={() => setSourcePreview(null)} style={{ background: 'none', color: '#bbb', border: 'none', fontSize: 15, marginTop: 8, cursor: 'pointer', textDecoration: 'underline' }}>Close</button>
-            </div>
-          </div>
-        )}
       </div>
+
       {/* Main Content (center) */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', position: 'relative' }}>
+      <div style={{ flex: 1, height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
         {/* Logout Button */}
         <button onClick={handleLogout} style={{ position: 'absolute', top: 20, right: 20, background: 'linear-gradient(45deg, #f44336, #e57373)', color: 'white', border: 'none', borderRadius: '8px', padding: '10px 20px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(244,67,54,0.15)', zIndex: 10 }}>Logout</button>
         {/* Header */}
-        <div style={{ background: 'rgba(0,0,0,0.5)', padding: '20px', borderBottom: '2px solid #4caf50', width: '100%' }}>
+        <div style={{ background: 'rgba(0,0,0,0.5)', padding: '20px', borderBottom: '2px solid #4caf50', width: '100%', flexShrink: 0 }}>
           <h1 style={{ margin: 0, textAlign: 'center', fontSize: '2.5rem', background: 'linear-gradient(45deg, #4caf50, #66bb6a, #81c784)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 0 20px rgba(76, 175, 80, 0.3)' }}>🧙‍♂️ WhizardLM</h1>
           <p style={{ textAlign: 'center', margin: '10px 0 0 0', opacity: 0.8, fontSize: '1.1rem' }}>AI-Powered Interactive Learning Platform</p>
         </div>
+
         {/* Chat Section */}
         {conversationId && (
-          <div style={{ flex: 1, width: '100%', maxWidth: '700px', margin: '40px auto 0 auto', background: 'rgba(255,255,255,0.05)', borderRadius: '15px', padding: '30px 0 90px 0', border: '1px solid rgba(255,255,255,0.1)', minHeight: '500px', display: 'flex', flexDirection: 'column', position: 'relative', boxShadow: '0 4px 24px rgba(0,0,0,0.15)' }}>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '0 30px' }}>
+          <div style={{ flex: 1, width: '100%', maxWidth: '700px', margin: '40px auto 0 auto', background: 'rgba(255,255,255,0.05)', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', position: 'relative', boxShadow: '0 4px 24px rgba(0,0,0,0.15)', height: 'calc(100vh - 180px)' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '30px 30px 90px 30px' }}>
               {messages.map((msg, idx) => (
                 <div key={idx} ref={el => { messageRefs.current[idx] = el; }} style={{ display: 'flex', flexDirection: msg.sender === 'user' ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: '18px' }}>
                   {/* Avatar */}
@@ -448,30 +408,11 @@ export const WhizardPage = () => {
             </div>
           </div>
         )}
-        {/* Topic Selection Modal */}
-        {showTopicModal && (
-          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ background: '#222', borderRadius: '18px', padding: '40px 30px', minWidth: 340, maxWidth: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.25)', color: '#fff', textAlign: 'center', position: 'relative' }}>
-              <h2 style={{ color: '#ff9800', marginBottom: 18 }}>🎯 Select Topics</h2>
-              <p style={{ color: '#bbb', marginBottom: 24 }}>Choose one or more topics to generate interactive elements:</p>
-              {topics.length === 0 ? (
-                <div style={{ color: '#ff9800', marginBottom: 24 }}>No topics found for this conversation.</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
-                  {topics.map((topic, idx) => (
-                    <button key={idx} onClick={() => handleTopicSelect(topic)} style={{ background: selectedTopics.includes(topic) ? 'linear-gradient(45deg, #4caf50, #66bb6a)' : 'rgba(255,255,255,0.08)', color: selectedTopics.includes(topic) ? 'white' : '#e0dede', border: selectedTopics.includes(topic) ? '2px solid #4caf50' : '2px solid #16213e', borderRadius: 10, padding: '12px', fontSize: 15, cursor: 'pointer', transition: 'all 0.2s' }}>{selectedTopics.includes(topic) && '✅ '}{topic}</button>
-                  ))}
-                </div>
-              )}
-              <button onClick={handleTopicModalProceed} disabled={selectedTopics.length === 0} style={{ background: selectedTopics.length === 0 ? 'linear-gradient(45deg, #666, #888)' : 'linear-gradient(45deg, #ff9800, #ffb74d)', color: 'white', border: 'none', borderRadius: 12, padding: '14px 32px', fontSize: 16, fontWeight: 'bold', cursor: selectedTopics.length === 0 ? 'not-allowed' : 'pointer', marginTop: 10, transition: 'all 0.2s' }}>Next</button>
-              <button onClick={() => setShowTopicModal(false)} style={{ background: 'none', color: '#bbb', border: 'none', fontSize: 15, marginTop: 18, cursor: 'pointer', textDecoration: 'underline' }}>Cancel</button>
-            </div>
-          </div>
-        )}
       </div>
-      {/* Right Sidebar: Chat History (now shows conversations) */}
-      <div style={{ width: 260, background: 'rgba(30,30,30,0.98)', borderLeft: '1px solid #222', minHeight: '100vh', position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '10px 10px 0 10px', flex: 1, overflowY: 'auto' }}>
+
+      {/* Right Sidebar: Chat History */}
+      <div style={{ width: 260, background: 'rgba(30,30,30,0.98)', borderLeft: '1px solid #222', height: '100vh', position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 10px 0 10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={{ fontWeight: 'bold', color: '#4caf50', fontSize: 18 }}>Chat History</div>
             <button onClick={handleNewChat} style={{ background: 'linear-gradient(45deg, #2196f3, #64b5f6)', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 14px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer', marginLeft: 8 }}>+ New Chat</button>
@@ -486,9 +427,59 @@ export const WhizardPage = () => {
         </div>
         {/* Generate Magic Button at the bottom right */}
         <div style={{ padding: 16, borderTop: '1px solid #222', background: 'rgba(30,30,30,0.98)', display: 'flex', justifyContent: 'flex-end' }}>
-          <button onClick={handleGenerateMagic} style={{ background: 'linear-gradient(45deg, #ff9800, #ffb74d)', color: 'white', border: 'none', borderRadius: '10px', padding: '12px 28px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.3s ease', boxShadow: '0 2px 8px rgba(255, 152, 0, 0.15)' }}>✨ Generate Magic</button>
+          <button onClick={handleGenerateMagic} style={{ background: 'linear-gradient(45deg, #ff9800, #ffb74d)', color: 'white', border: 'none', borderRadius: '10px', padding: '12px 28px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.3s ease', boxShadow: '0 2px 8px rgba(255, 152, 0, 0.15)' }}>✨ Interactive</button>
         </div>
       </div>
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <div style={{ 
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          width: '100vw', 
+          height: '100vh', 
+          background: 'rgba(0,0,0,0.8)', 
+          zIndex: 1000, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center' 
+        }}>
+          <div style={{ 
+            background: '#1a1a1a', 
+            borderRadius: '20px', 
+            padding: '20px', 
+            maxWidth: '90vw', 
+            maxHeight: '90vh', 
+            overflow: 'auto',
+            position: 'relative',
+            border: '2px solid #4caf50'
+          }}>
+            <button 
+              onClick={() => setShowUploadModal(false)} 
+              style={{ 
+                position: 'absolute', 
+                top: '15px', 
+                right: '15px', 
+                background: '#f44336', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '50%', 
+                width: '30px', 
+                height: '30px', 
+                cursor: 'pointer', 
+                fontSize: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              ×
+            </button>
+            {UploadForm}
+          </div>
+        </div>
+      )}
     </div>
   );
 }; 

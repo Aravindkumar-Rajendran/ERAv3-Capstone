@@ -275,20 +275,21 @@ export const WhizardPage = () => {
     if (!projectId) return;
     try {
       const formData = new FormData();
-      formData.append('text', 'New chat started');
       formData.append('project_id', projectId);
-      const uploadResponse = await fetch('http://localhost:8000/upload', {
+      const response = await fetch('http://localhost:8000/conversations/new', {
         method: 'POST',
         body: formData,
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (!uploadResponse.ok) throw new Error('Failed to start new chat');
-      const uploadResult = await uploadResponse.json();
+      if (!response.ok) throw new Error('Failed to start new chat');
+      const uploadResult = await response.json();
       setConversationId(uploadResult.conversation_id);
       setMessages([{ sender: 'whizard', text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.' }]);
       setTopics([]);
       setShowTopics(false);
       setInput('');
+      // Refresh chat history sidebar
+      await fetchConversations();
     } catch (e) {
       alert('Failed to start a new chat.');
     }
@@ -430,6 +431,18 @@ export const WhizardPage = () => {
           <button onClick={handleGenerateMagic} style={{ background: 'linear-gradient(45deg, #ff9800, #ffb74d)', color: 'white', border: 'none', borderRadius: '10px', padding: '12px 28px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.3s ease', boxShadow: '0 2px 8px rgba(255, 152, 0, 0.15)' }}>✨ Interactive</button>
         </div>
       </div>
+
+      {showUploadModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{ background: '#222', borderRadius: 16, padding: 32, minWidth: 400, maxWidth: 700, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+            {UploadForm}
+            <button onClick={() => setShowUploadModal(false)} style={{ marginTop: 24, background: '#f44336', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 'bold', fontSize: 16, cursor: 'pointer' }}>Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }; 

@@ -27,14 +27,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     <Paper
       elevation={0}
       sx={{
-        position: 'fixed',
-        bottom: 0,
-        left: '280px',
-        right: '320px',
-        p: 2,
+        width: '100%',
         backgroundColor: 'background.default',
-        borderTop: '1px solid',
-        borderColor: 'divider',
       }}
     >
       <Box
@@ -42,11 +36,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           display: 'flex',
           gap: 1,
           alignItems: 'center',
+          width: '100%'
         }}
       >
         <TextField
           fullWidth
-          placeholder="Upload a source to get started"
+          placeholder="Ask and Learn with WhiZard"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
@@ -54,6 +49,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           multiline
           maxRows={4}
           sx={{
+            flex: 1,
             '& .MuiOutlinedInput-root': {
               borderRadius: 3,
               backgroundColor: 'background.paper',

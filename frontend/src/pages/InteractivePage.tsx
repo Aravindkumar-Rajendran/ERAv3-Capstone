@@ -3,14 +3,24 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { QuizComponent } from '../components/QuizComponent';
 import { TimelineComponent } from '../components/timeline/TimelineComponent';
-import MindmapComponent from '../components/mindmap/MindmapComponent';
+import { MindmapComponent } from '../components/mindmap/MindmapComponent';
 import { FlashcardComponent } from '../components/flashcard/FlashcardComponent';
 import { QuizData } from '../types/quiz';
 import { TimelineData } from '../types/timeline';
 import { MindmapData } from '../types/mindmap';
 import { FlashcardData } from '../types/flashcard';
-import { Box, Paper, Typography, Button, Grid, List, ListItem, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, Paper, Typography, Button, Grid, List, ListItem, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, Card, CardContent, CardActions, Chip } from '@mui/material';
 import { ListItemButton } from '@mui/material';
+import { 
+  Quiz as QuizIcon,
+  Style as StyleIcon,
+  AccountTree,
+  Timeline
+} from '@mui/icons-material';
+import { Snackbar } from '@mui/material';
+import { Alert } from '@mui/material';
+import { CircularProgress } from '@mui/material';
+import { ROUTES } from '../services/routes';
 
 // Add type for interactive history entry
 interface InteractiveHistoryEntry {
@@ -44,6 +54,9 @@ export const InteractivePage: React.FC = () => {
   const [showTopicModal, setShowTopicModal] = useState(false);
   const [topics, setTopics] = useState<string[]>([]);
   const [selectedInteractiveType, setSelectedInteractiveType] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [topicsLoading, setTopicsLoading] = useState(false);
 
   useEffect(() => {
     if (location.state && location.state.selectedTopics) {
@@ -60,7 +73,7 @@ export const InteractivePage: React.FC = () => {
       if (!projectId || !token) return;
       setHistoryLoading(true);
       try {
-        const resp = await fetch(`http://localhost:8000/interact-history?project_id=${projectId}`, {
+        const resp = await fetch(ROUTES.INTERACT_HISTORY(projectId), {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await resp.json();
@@ -87,19 +100,19 @@ export const InteractivePage: React.FC = () => {
       alert('Please select at least one topic.');
       return;
     }
-    setShowTopicModal(false);
-    
     // Generate the selected interactive type with selected topics
     if (selectedInteractiveType === 'quiz') await handleGenerateQuiz();
     else if (selectedInteractiveType === 'timeline') await handleGenerateTimeline();
     else if (selectedInteractiveType === 'mindmap') await handleGenerateMindmap();
-    else if (selectedInteractiveType === 'flashcards') await handleGenerateFlashcard();
+    else if (selectedInteractiveType === 'flashcard') await handleGenerateFlashcard();
+    setShowTopicModal(false);
   };
 
   const fetchTopics = async () => {
     if (!projectId || !token) return;
+    setTopicsLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/topics/${projectId}`, {
+      const response = await fetch(ROUTES.TOPICS(projectId), {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -112,6 +125,7 @@ export const InteractivePage: React.FC = () => {
     } catch (e) {
       alert('Failed to fetch topics for this project.');
     }
+    setTopicsLoading(false);
   };
 
   // Helper to format date (no date-fns)
@@ -128,7 +142,7 @@ export const InteractivePage: React.FC = () => {
     }
     setIsGenerating(true);
     try {
-      const resp = await fetch(`http://localhost:8000/interact-content/${entry.interact_id}`, {
+      const resp = await fetch(ROUTES.INTERACT_CONTENT(entry.interact_id), {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -165,6 +179,48 @@ export const InteractivePage: React.FC = () => {
     }
   };
 
+  const handleInteractiveClick = async (type: 'quiz' | 'flashcard' | 'mindmap' | 'timeline') => {
+    if (!projectId) {
+      setError('Project ID is required');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('project_id', projectId);
+      formData.append('content_type', type);
+
+      // Map type to the correct route
+      const routeMap: Record<string, string> = {
+        quiz: ROUTES.INTERACT_QUIZ,
+        timeline: ROUTES.INTERACT_TIMELINE,
+        mindmap: ROUTES.INTERACT_MINDMAP,
+        flashcard: ROUTES.INTERACT_FLASHCARD,
+      };
+      const endpoint = routeMap[type];
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate ${type}`);
+      }
+
+      const data = await response.json();
+      navigate(`/${type}`, { state: { data, projectId } });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate interactive content');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleGenerateQuiz = async () => {
     console.log("DEBUG: projectId =", projectId);
     if (selectedTopics.length === 0 || !projectId) return;
@@ -173,7 +229,7 @@ export const InteractivePage: React.FC = () => {
       const formData = new FormData();
       formData.append('project_id', projectId);
       selectedTopics.forEach(topic => formData.append('topics', topic));
-      const response = await fetch('http://localhost:8000/interact', {
+      const response = await fetch(ROUTES.INTERACT_QUIZ, {
         method: 'POST',
         body: formData,
         headers: { 'Authorization': `Bearer ${token}` }
@@ -195,7 +251,7 @@ export const InteractivePage: React.FC = () => {
       const formData = new FormData();
       formData.append('project_id', projectId);
       selectedTopics.forEach(topic => formData.append('topics', topic));
-      const response = await fetch('http://localhost:8000/interact-timeline', {
+      const response = await fetch(ROUTES.INTERACT_TIMELINE, {
         method: 'POST',
         body: formData,
         headers: { 'Authorization': `Bearer ${token}` }
@@ -231,7 +287,7 @@ export const InteractivePage: React.FC = () => {
       const formData = new FormData();
       formData.append('project_id', projectId);
       selectedTopics.forEach(topic => formData.append('topics', topic));
-      const response = await fetch('http://localhost:8000/interact-mindmap', {
+      const response = await fetch(ROUTES.INTERACT_MINDMAP, {
         method: 'POST',
         body: formData,
         headers: { 'Authorization': `Bearer ${token}` }
@@ -253,7 +309,7 @@ export const InteractivePage: React.FC = () => {
       const formData = new FormData();
       formData.append('project_id', projectId);
       selectedTopics.forEach(topic => formData.append('topics', topic));
-      const response = await fetch('http://localhost:8000/interact-flashcard', {
+      const response = await fetch(ROUTES.INTERACT_FLASHCARD, {
         method: 'POST',
         body: formData,
         headers: { 'Authorization': `Bearer ${token}` }
@@ -271,8 +327,8 @@ export const InteractivePage: React.FC = () => {
   const handleOptionClick = async (option: string) => {
     setSelectedInteractiveType(option);
     setSelectedTopics([]); // Reset selected topics
-    await fetchTopics();
     setShowTopicModal(true);
+    await fetchTopics();
   };
   const handleQuizClose = () => { 
     setIsQuizOpen(false); 
@@ -295,156 +351,286 @@ export const InteractivePage: React.FC = () => {
     setShowOptions(true);
   };
   const handleLogout = async () => { await logout(); navigate('/login'); };
+  const handleBack = () => { navigate(-1); };
+
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.paper', color: 'text.primary', display: 'flex', flexDirection: 'row' }}>
-      {/* Main Content */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-        {/* Header Section */}
-        <Paper elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: 2, borderColor: 'primary.main', py: 3, px: 2, textAlign: 'center', borderRadius: 0 }}>
-          <Typography variant="h4" fontWeight={700} color="primary">
-            WhizardLM Interactive
-          </Typography>
-          <Typography variant="subtitle1" sx={{ mt: 1, opacity: 0.8 }}>
-            Generate interactive learning elements for your selected topics!
-          </Typography>
-        </Paper>
-        {/* Navigation Buttons */}
-        <Box sx={{ position: 'absolute', top: 24, left: 24, zIndex: 10 }}>
-          <Button variant="outlined" color="primary" onClick={() => navigate(-1)} sx={{ borderRadius: 2, fontWeight: 600 }}>
-            ← Back
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <Box sx={{
+        p: 2,
+        borderBottom: 1,
+        borderColor: 'divider',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        bgcolor: 'background.paper'
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Button
+            onClick={handleBack}
+            variant="outlined"
+            size="small"
+            sx={{ borderRadius: 2 }}
+          >
+            Back
           </Button>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>Interactive Learning</Typography>
         </Box>
-        <Box sx={{ position: 'absolute', top: 24, right: 24, zIndex: 10 }}>
-          <Button variant="outlined" color="error" onClick={handleLogout} sx={{ borderRadius: 2, fontWeight: 600 }}>
-            Logout
-          </Button>
-        </Box>
-        {/* Interactive Type Selector */}
-        {showOptions && (
-          <Paper elevation={2} sx={{ flex: 1, bgcolor: 'background.default', borderRadius: 3, p: 4, border: 1, borderColor: 'divider', m: '32px auto', maxWidth: 700, width: '100%' }}>
-            <Typography variant="h6" align="center" sx={{ mb: 3, color: 'primary.main', fontWeight: 700 }}>Choose an Interactive Element:</Typography>
-            <Grid container spacing={3} justifyContent="center">
-              {[
-                { name: 'Quiz', icon: '🧠', color: 'success.main', id: 'quiz' },
-                { name: 'Timeline', icon: '⏰', color: 'warning.main', id: 'timeline' },
-                { name: 'Mind Map', icon: '🗺️', color: 'secondary.main', id: 'mindmap' },
-                { name: 'Flashcards', icon: '📚', color: 'error.main', id: 'flashcards' }
-              ].map((option) => (
-                <Grid item xs={12} sm={6} md={3} key={option.id}>
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    onClick={() => handleOptionClick(option.id)}
-                    sx={{
-                      borderRadius: 3,
-                      fontWeight: 700,
-                      fontSize: '1.1rem',
-                      py: 3,
-                      bgcolor: option.color,
-                      color: '#fff',
-                      boxShadow: 2,
-                      '&:hover': { bgcolor: option.color, opacity: 0.9 },
-                      display: 'flex', flexDirection: 'column', gap: 1
-                    }}
-                  >
-                    <span style={{ fontSize: '2rem' }}>{option.icon}</span>
-                    {option.name}
-                  </Button>
-                </Grid>
-              ))}
-            </Grid>
-          </Paper>
-        )}
-        {/* Interactive Components */}
-        {activeQuiz && (
-          <QuizComponent quizData={activeQuiz} isOpen={isQuizOpen} onClose={handleQuizClose} onComplete={() => {}} />
-        )}
-        {activeTimeline && (
-          <TimelineComponent timelineData={activeTimeline} isOpen={isTimelineOpen} onClose={handleTimelineClose} onComplete={() => {}} />
-        )}
-        {activeMindmap && (
-          <MindmapComponent mindmapData={activeMindmap} isOpen={isMindmapOpen} onClose={handleMindmapClose} onComplete={() => {}} />
-        )}
-        {activeFlashcard && (
-          <FlashcardComponent flashcardData={activeFlashcard} isOpen={isFlashcardOpen} onClose={handleFlashcardClose} onComplete={() => {}} />
-        )}
       </Box>
-      {/* Right Sidebar: Interactive History */}
-      <Box sx={{ width: 320, bgcolor: 'background.default', borderLeft: 1, borderColor: 'divider', minHeight: '100vh', position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ p: 3, flex: 1, overflowY: 'auto' }}>
-          <Typography variant="h6" sx={{ fontWeight: 700, color: 'warning.main', mb: 2 }}>Interactive History</Typography>
+
+      {/* Main Content with Right Sidebar */}
+      <Box sx={{
+        flexGrow: 1,
+        display: 'flex',
+        flexDirection: 'row',
+        minHeight: 0,
+        height: '100%',
+        overflow: 'hidden',
+      }}>
+        {/* Main Cards Section */}
+        <Box sx={{
+          flex: 1,
+          p: { xs: 2, sm: 3 },
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: 'repeat(2, 1fr)',
+            md: 'repeat(2, 1fr)',
+            lg: 'repeat(2, 1fr)'
+          },
+          gap: 3,
+          overflowY: 'auto',
+        }}>
+          {/* Quiz Card */}
+          <Card sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            minHeight: 200
+          }}>
+            <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+              <QuizIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+              <Typography variant="h6" gutterBottom>Quiz</Typography>
+              <Typography variant="body2" color="text.secondary" align="center">
+                Test your knowledge with interactive quizzes
+              </Typography>
+            </CardContent>
+            <CardActions sx={{ p: 2, pt: 0 }}>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={() => handleOptionClick('quiz')}
+                disabled={isLoading}
+              >
+                Start Quiz
+              </Button>
+            </CardActions>
+          </Card>
+          {/* Flashcard Card */}
+          <Card sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            minHeight: 200
+          }}>
+            <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+              <StyleIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+              <Typography variant="h6" gutterBottom>Flashcards</Typography>
+              <Typography variant="body2" color="text.secondary" align="center">
+                Review key concepts with flashcards
+              </Typography>
+            </CardContent>
+            <CardActions sx={{ p: 2, pt: 0 }}>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={() => handleOptionClick('flashcard')}
+                disabled={isLoading}
+              >
+                Start Flashcards
+              </Button>
+            </CardActions>
+          </Card>
+          {/* Mindmap Card */}
+          <Card sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            minHeight: 200
+          }}>
+            <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+              <AccountTree sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+              <Typography variant="h6" gutterBottom>Mindmap</Typography>
+              <Typography variant="body2" color="text.secondary" align="center">
+                Visualize connections with mindmaps
+              </Typography>
+            </CardContent>
+            <CardActions sx={{ p: 2, pt: 0 }}>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={() => handleOptionClick('mindmap')}
+                disabled={isLoading}
+              >
+                View Mindmap
+              </Button>
+            </CardActions>
+          </Card>
+          {/* Timeline Card */}
+          <Card sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            minHeight: 200
+          }}>
+            <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+              <Timeline sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+              <Typography variant="h6" gutterBottom>Timeline</Typography>
+              <Typography variant="body2" color="text.secondary" align="center">
+                Explore events in chronological order
+              </Typography>
+            </CardContent>
+            <CardActions sx={{ p: 2, pt: 0 }}>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={() => handleOptionClick('timeline')}
+                disabled={isLoading}
+              >
+                View Timeline
+              </Button>
+            </CardActions>
+          </Card>
+        </Box>
+        {/* Interactive History Sidebar */}
+        <Box sx={{
+          width: { xs: '100%', md: 340 },
+          minWidth: { md: 280 },
+          maxWidth: 400,
+          bgcolor: 'background.paper',
+          borderLeft: { md: 1, xs: 0 },
+          borderColor: 'divider',
+          p: 2,
+          display: { xs: 'none', md: 'flex' },
+          flexDirection: 'column',
+          overflowY: 'auto',
+          height: '100%',
+        }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Interactive History</Typography>
           {historyLoading ? (
-            <Typography color="text.secondary">Loading...</Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+              <CircularProgress />
+            </Box>
           ) : interactiveHistory.length === 0 ? (
             <Typography color="text.secondary">No interactive history yet.</Typography>
           ) : (
             <List>
-              {interactiveHistory.map((entry, idx) => (
-                <ListItem
-                  key={entry.id}
-                  button
-                  onClick={() => handleHistoryClick(entry)}
-                  sx={{
-                    borderLeft: 3,
-                    borderColor:
-                      entry.content_type === 'quiz'
-                        ? 'success.main'
-                        : entry.content_type === 'timeline'
-                        ? 'warning.main'
-                        : entry.content_type === 'mindmap'
-                        ? 'secondary.main'
-                        : 'error.main',
-                    bgcolor: 'background.paper',
-                    borderRadius: 2,
-                    mb: 1,
-                  }}
-                >
-                  <ListItemText
-                    primary={<Typography fontWeight={600} textTransform="capitalize">{entry.content_type}</Typography>}
-                    secondary={<>
-                      <Typography variant="body2" color="text.secondary">Topics: {entry.topics.join(', ')}</Typography>
-                      <Typography variant="caption" color="text.disabled">{formatDate(entry.created_at)}</Typography>
-                    </>}
-                  />
-                </ListItem>
+              {interactiveHistory.map((entry) => (
+                <ListItemButton key={entry.id} onClick={() => handleHistoryClick(entry)} sx={{ borderRadius: 2, mb: 1, alignItems: 'flex-start' }}>
+                  <Box sx={{ width: '100%' }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 500, mb: 0.5 }}>
+                      {entry.content_type.charAt(0).toUpperCase() + entry.content_type.slice(1)}
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                      {entry.topics.map((topic) => (
+                        <Chip key={topic} label={topic} size="small" color="primary" sx={{ fontSize: 12 }} />
+                      ))}
+                    </Box>
+                  </Box>
+                </ListItemButton>
               ))}
             </List>
           )}
         </Box>
       </Box>
+
+      {/* Loading Dialog */}
+      <Dialog open={isLoading} sx={{ '& .MuiDialog-paper': { bgcolor: 'background.default' } }}>
+        <DialogContent sx={{ textAlign: 'center', p: 4 }}>
+          <CircularProgress sx={{ mb: 2 }} />
+          <Typography>Generating interactive content...</Typography>
+        </DialogContent>
+      </Dialog>
+
+      {/* Error Snackbar */}
+      <Snackbar
+        open={!!error}
+        autoHideDuration={6000}
+        onClose={() => setError(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity="error" onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      </Snackbar>
+
       {/* Topic Selection Modal */}
       <Dialog open={showTopicModal} onClose={() => setShowTopicModal(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Select Topics</DialogTitle>
         <DialogContent>
-          {topics.length === 0 ? (
-            <Typography color="warning.main" sx={{ mb: 2 }}>No topics found for this project.</Typography>
+          {topicsLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 120 }}>
+              <CircularProgress />
+            </Box>
+          ) : topics.length === 0 ? (
+            <Typography color="text.secondary">No topics available for this project.</Typography>
           ) : (
             <List>
-              {topics.map((topic, idx) => (
-                <ListItemButton
-                  key={idx}
-                  selected={selectedTopics.includes(topic)}
-                  onClick={() => handleTopicSelect(topic)}
-                  sx={{ borderRadius: 2, mb: 1 }}
-                >
-                  <ListItemText primary={selectedTopics.includes(topic) ? `✅ ${topic}` : topic} />
-                </ListItemButton>
+              {topics.map((topic) => (
+                <ListItem key={topic} disablePadding>
+                  <ListItemButton
+                    selected={selectedTopics.includes(topic)}
+                    onClick={() => handleTopicSelect(topic)}
+                  >
+                    <ListItemText primary={topic} />
+                  </ListItemButton>
+                </ListItem>
               ))}
             </List>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowTopicModal(false)}>Cancel</Button>
+          <Button onClick={() => setShowTopicModal(false)} color="secondary" disabled={isGenerating || topicsLoading}>Cancel</Button>
           <Button
             onClick={handleTopicModalProceed}
             variant="contained"
-            disabled={selectedTopics.length === 0}
-            color="primary"
+            disabled={selectedTopics.length === 0 || topicsLoading || isGenerating}
+            startIcon={isGenerating ? <CircularProgress size={20} color="inherit" /> : null}
           >
-            Generate {selectedInteractiveType}
+            {isGenerating ? 'Generating...' : 'Proceed'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Render Interactive Content Modals */}
+      {activeQuiz && (
+        <QuizComponent
+          quizData={activeQuiz}
+          isOpen={isQuizOpen}
+          onClose={handleQuizClose}
+        />
+      )}
+      {activeTimeline && (
+        <TimelineComponent
+          timelineData={activeTimeline}
+          isOpen={isTimelineOpen}
+          onClose={handleTimelineClose}
+        />
+      )}
+      {activeMindmap && (
+        <MindmapComponent
+          mindmapData={activeMindmap}
+          isOpen={isMindmapOpen}
+          onClose={handleMindmapClose}
+        />
+      )}
+      {activeFlashcard && (
+        <FlashcardComponent
+          flashcardData={activeFlashcard}
+          isOpen={isFlashcardOpen}
+          onClose={handleFlashcardClose}
+        />
+      )}
     </Box>
   );
 }; 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Paper, Avatar } from '@mui/material';
-import { SmartToy as BotIcon } from '@mui/icons-material';
+import { SmartToy as BotIcon, Person as UserIcon } from '@mui/icons-material';
 
 interface ChatMessageProps {
   message: {
@@ -19,42 +19,46 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
         gap: 2,
         mb: 3,
         px: 2,
+        flexDirection: isBot ? 'row' : 'row-reverse',
+        justifyContent: isBot ? 'flex-start' : 'flex-end',
+        alignItems: 'flex-start',
       }}
     >
-      {isBot ? (
-        <Avatar
-          sx={{
-            bgcolor: 'primary.main',
-            width: 32,
-            height: 32,
-          }}
-        >
+      <Avatar
+        sx={{
+          bgcolor: isBot ? 'primary.main' : '#6366f1',
+          width: 32,
+          height: 32,
+        }}
+      >
+        {isBot ? (
           <BotIcon sx={{ fontSize: 20 }} />
-        </Avatar>
-      ) : (
-        <Avatar
-          sx={{
-            bgcolor: 'grey.400',
-            width: 32,
-            height: 32,
-          }}
-        />
-      )}
+        ) : (
+          <UserIcon sx={{ fontSize: 20 }} />
+        )}
+      </Avatar>
 
       <Paper
         elevation={0}
         sx={{
           p: 2,
           maxWidth: '80%',
-          bgcolor: isBot ? 'background.paper' : 'primary.light',
+          bgcolor: isBot ? 'background.paper' : '#e0e7ff',
           borderRadius: 2,
+          boxShadow: isBot ? 1 : 'none',
+          borderWidth: isBot ? 0 : 1,
+          borderStyle: 'solid',
+          borderColor: isBot ? 'transparent' : '#c7d2fe',
+          ml: isBot ? 0 : 'auto',
+          mr: isBot ? 'auto' : 0,
         }}
       >
         <Typography
           variant="body1"
           sx={{
-            color: 'text.primary',
+            color: isBot ? 'text.primary' : '#1e1b4b',
             whiteSpace: 'pre-wrap',
+            fontWeight: isBot ? 'normal' : 500
           }}
         >
           {message.text}

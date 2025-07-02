@@ -23,6 +23,7 @@ import {
   Folder as FolderIcon,
   Logout as LogoutIcon,
 } from '@mui/icons-material';
+import { ROUTES } from '../services/routes';
 
 interface Project {
   id: string;
@@ -44,7 +45,7 @@ const ProjectsPage = () => {
     const fetchProjects = async () => {
       setLoading(true);
       try {
-        const res = await fetch('http://localhost:8000/projects', {
+        const res = await fetch(ROUTES.PROJECTS, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
@@ -63,7 +64,7 @@ const ProjectsPage = () => {
     if (!newProjectName.trim()) return;
     try {
       setLoading(true);
-      const res = await fetch('http://localhost:8000/projects', {
+      const res = await fetch(ROUTES.PROJECTS, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -74,7 +75,7 @@ const ProjectsPage = () => {
       const data = await res.json();
       if (data.status === 'success') {
         // Refetch projects
-        const res2 = await fetch('http://localhost:8000/projects', {
+        const res2 = await fetch(ROUTES.PROJECTS, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data2 = await res2.json();

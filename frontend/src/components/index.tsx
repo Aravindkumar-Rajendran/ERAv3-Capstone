@@ -18,5 +18,5 @@ export { MatchFollowingQuiz } from './quiz/MatchFollowingQuiz';
 
 // Interactive Components
 export { TimelineComponent } from './timeline/TimelineComponent';
-export { default as MindmapComponent } from './mindmap/MindmapComponent';
+export { MindmapComponent } from './mindmap/MindmapComponent';
 export { FlashcardComponent } from './flashcard/FlashcardComponent';

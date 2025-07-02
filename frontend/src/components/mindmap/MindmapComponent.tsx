@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { MindmapComponentProps } from '../../types/mindmap';
+import React, { useState, useEffect, useRef } from 'react';
+import { MindmapComponentProps, MindmapData, MindmapNode as MindmapNodeType } from '../../types/mindmap';
 import {
   Box,
   Button,
@@ -19,194 +19,169 @@ import {
   Refresh as RefreshIcon,
   ChevronRight as ExpandIcon,
 } from '@mui/icons-material';
+import * as d3 from 'd3';
+
+interface HierarchyNode {
+  name: string;
+  children?: HierarchyNode[];
+}
+
+interface D3Node extends d3.HierarchyPointNode<HierarchyNode> {}
+
+interface D3Link extends d3.HierarchyLink<HierarchyNode> {
+  source: D3Node;
+  target: D3Node;
+}
 
 interface ExtendedMindmapComponentProps extends MindmapComponentProps {
   onRetry?: () => void;
   isGenerating?: boolean;
 }
 
-const MindmapComponent: React.FC<ExtendedMindmapComponentProps> = ({
+// Convert MindmapData to hierarchy structure
+const convertToHierarchy = (data: MindmapData): HierarchyNode => {
+  const root: HierarchyNode = {
+    name: data.title,
+    children: []
+  };
+
+  // Sort levels by level number
+  const sortedLevels = [...data.levels].sort((a, b) => a.level - b.level);
+
+  // Create a map to store nodes by their IDs
+  const nodeMap = new Map<string, HierarchyNode>();
+  nodeMap.set('root', root);
+
+  // Process each level
+  sortedLevels.forEach(level => {
+    level.nodes.forEach(node => {
+      const hierarchyNode: HierarchyNode = {
+        name: node.label,
+        children: []
+      };
+      nodeMap.set(node.id, hierarchyNode);
+
+      // Add to parent's children
+      const parentNode = node.parent === null ? root : nodeMap.get(node.parent);
+      if (parentNode) {
+        if (!parentNode.children) {
+          parentNode.children = [];
+        }
+        parentNode.children.push(hierarchyNode);
+      }
+    });
+  });
+
+  return root;
+};
+
+export const MindmapComponent: React.FC<ExtendedMindmapComponentProps> = ({
   mindmapData,
   isOpen,
   onClose,
   onRetry,
   isGenerating = false,
 }) => {
+  const svgRef = useRef<SVGSVGElement>(null);
   const theme = useTheme();
-  const [zoom, setZoom] = useState(1);
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['root']));
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!svgRef.current || !mindmapData) return;
 
-  React.useEffect(() => {
-    if (mindmapData) {
-      setExpandedNodes(new Set(['root']));
-      setZoom(1);
-      setPanOffset({ x: 0, y: 0 });
-    }
-  }, [mindmapData?.id]);
+    // Clear existing content
+    svgRef.current.innerHTML = '';
 
-  if (!mindmapData || !mindmapData.levels || !Array.isArray(mindmapData.levels) || mindmapData.levels.length === 0) {
-    return (
-      <Modal
-        open={isOpen}
-        onClose={onClose}
-        closeAfterTransition
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Fade in={isOpen}>
-          <Paper
-            elevation={8}
-            sx={{
-              p: 4,
-              maxWidth: 400,
-              textAlign: 'center',
-              borderRadius: 2,
-            }}
-          >
-            <Typography variant="h5" gutterBottom>
-              Error Loading Mindmap
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-              Unable to load mindmap data. Please try again.
-            </Typography>
-            {onRetry && (
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={onRetry}
-                startIcon={<RefreshIcon />}
-                sx={{ mr: 2 }}
-              >
-                Retry
-              </Button>
-            )}
-            <Button variant="outlined" onClick={onClose}>
-              Close
-            </Button>
-          </Paper>
-        </Fade>
-      </Modal>
-    );
-  }
+    const margin = { top: 40, right: 90, bottom: 50, left: 90 };
+    const width = window.innerWidth - margin.left - margin.right;
+    const height = window.innerHeight - margin.top - margin.bottom;
 
-  const handleWheel = (e: React.WheelEvent) => {
-    if (e.defaultPrevented) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom((prevZoom) => Math.max(0.5, Math.min(2, prevZoom * delta)));
-  };
+    // Convert data to hierarchy structure
+    const hierarchyData = d3.hierarchy(convertToHierarchy(mindmapData));
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button === 0) {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
-      e.preventDefault();
-    }
-  };
+    // Create tree layout with increased spacing
+    const treeLayout = d3.tree<HierarchyNode>()
+      .size([height, width])
+      .nodeSize([80, 160]); // Increased spacing
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging) {
-      const newX = e.clientX - dragStart.x;
-      const newY = e.clientY - dragStart.y;
-      setPanOffset({ x: newX, y: newY });
-      e.preventDefault();
-    }
-  };
+    const tree = treeLayout(hierarchyData) as unknown as d3.HierarchyPointNode<HierarchyNode>;
+    const descendants = tree.descendants() as d3.HierarchyPointNode<HierarchyNode>[];
+    const links = tree.links() as d3.HierarchyPointLink<HierarchyNode>[];
 
-  const handleMouseUp = (e: React.MouseEvent) => {
-    if (isDragging) {
-      setIsDragging(false);
-      e.preventDefault();
-    }
-  };
+    // Create SVG with better margins
+    const svg = d3.select(svgRef.current)
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", `translate(${margin.left + width/4},${margin.top})`);
 
-  const handleMouseLeave = () => {
-    setIsDragging(false);
-  };
+    // Add links with curved paths
+    svg.selectAll(".link")
+      .data(links)
+      .enter()
+      .append("path")
+      .attr("class", "link")
+      .attr("fill", "none")
+      .attr("stroke", "#ccc")
+      .attr("stroke-width", 2)
+      .attr("d", d3.linkHorizontal<d3.HierarchyPointLink<HierarchyNode>, d3.HierarchyPointNode<HierarchyNode>>()
+        .x(d => d.y)
+        .y(d => d.x));
 
-  const toggleNode = (nodeId: string) => {
-    const newExpanded = new Set(expandedNodes);
-    if (newExpanded.has(nodeId)) {
-      newExpanded.delete(nodeId);
-    } else {
-      newExpanded.add(nodeId);
-    }
-    setExpandedNodes(newExpanded);
-  };
+    // Add nodes with improved styling
+    const nodes = svg.selectAll<SVGGElement, d3.HierarchyPointNode<HierarchyNode>>(".node")
+      .data(descendants)
+      .enter()
+      .append("g")
+      .attr("class", "node")
+      .attr("transform", d => `translate(${d.y},${d.x})`);
 
-  const handleNodeClick = (nodeId: string, hasChildren: boolean) => {
-    if (!isDragging && hasChildren) {
-      toggleNode(nodeId);
-    }
-  };
+    // Add node circles with better styling
+    nodes.append("circle")
+      .attr("r", 10)
+      .style("fill", "#fff")
+      .style("stroke", theme.palette.primary.main)
+      .style("stroke-width", 3)
+      .style("filter", "drop-shadow(0px 2px 3px rgba(0,0,0,0.2))");
 
-  const hasChildren = (nodeId: string) => {
-    try {
-      return mindmapData.levels.some(
-        (level) =>
-          level.nodes &&
-          Array.isArray(level.nodes) &&
-          level.nodes.some((node) => node.parent === nodeId)
-      );
-    } catch (error) {
-      console.error('Error checking children:', error);
-      return false;
-    }
-  };
+    // Add node labels with improved styling
+    nodes.append("text")
+      .attr("dy", "0.31em")
+      .attr("x", d => d.children ? -16 : 16)
+      .attr("text-anchor", d => d.children ? "end" : "start")
+      .text(d => d.data.name)
+      .style("font-family", theme.typography.fontFamily || "Arial")
+      .style("font-size", "14px")
+      .style("font-weight", d => d.depth === 0 ? "bold" : "normal")
+      .style("fill", theme.palette.text.primary)
+      .each(function(this: SVGTextElement) {
+        // Add background rectangle with improved styling
+        const bbox = this.getBBox();
+        const padding = 6;
+        
+        d3.select(this.parentNode as Element)
+          .insert("rect", "text")
+          .attr("x", bbox.x - padding)
+          .attr("y", bbox.y - padding)
+          .attr("width", bbox.width + (padding * 2))
+          .attr("height", bbox.height + (padding * 2))
+          .attr("fill", theme.palette.background.paper)
+          .attr("fill-opacity", 0.95)
+          .attr("rx", 6)
+          .style("filter", "drop-shadow(0px 2px 3px rgba(0,0,0,0.1))");
+      });
 
-  const getVisibleNodes = () => {
-    try {
-      const visibleNodes: Array<{ node: any; level: number; isLast: boolean }> = [];
+    // Add improved zoom behavior
+    const zoom = d3.zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.3, 2])
+      .on("zoom", (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
+        svg.attr("transform", `translate(${event.transform.x},${event.transform.y}) scale(${event.transform.k})`);
+      });
 
-      const buildTreeOrder = (parentId: string | null, currentLevel: number) => {
-        const levelData = mindmapData.levels.find((l) => l.level === currentLevel);
-        if (!levelData || !levelData.nodes) return;
+    d3.select(svgRef.current)
+      .call(zoom)
+      .call(zoom.translateTo, width / 3, height / 2);
 
-        const children = levelData.nodes.filter((node) => {
-          if (currentLevel === 0) return !node.parent;
-          return node.parent === parentId;
-        });
-
-        children.forEach((child, index) => {
-          if (!child || !child.id || !child.label) return;
-
-          const isLast = index === children.length - 1;
-          visibleNodes.push({ node: child, level: currentLevel, isLast });
-
-          if (expandedNodes.has(child.id)) {
-            buildTreeOrder(child.id, currentLevel + 1);
-          }
-        });
-      };
-
-      buildTreeOrder(null, 0);
-      return visibleNodes;
-    } catch (error) {
-      console.error('Error building mindmap tree:', error);
-      return [];
-    }
-  };
-
-  const getLevelColors = (level: number) => {
-    const baseColor = theme.palette.primary.main;
-    const opacity = Math.max(0.3, 1 - level * 0.2);
-    return {
-      background: theme.palette.mode === 'dark'
-        ? theme.palette.grey[900]
-        : theme.palette.grey[100],
-      border: baseColor,
-      text: theme.palette.text.primary,
-    };
-  };
+  }, [mindmapData, theme]);
 
   return (
     <Modal
@@ -223,152 +198,61 @@ const MindmapComponent: React.FC<ExtendedMindmapComponentProps> = ({
         <Paper
           elevation={8}
           sx={{
-            position: 'relative',
-            width: '95vw',
-            height: '90vh',
-            maxWidth: 1200,
-            overflow: 'hidden',
+            p: 2,
+            maxWidth: '90vw',
+            maxHeight: '90vh',
+            width: '100%',
+            height: '100%',
             borderRadius: 2,
             bgcolor: 'background.paper',
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'auto',
           }}
         >
-          {/* Header */}
-          <Box
-            sx={{
-              p: 2,
-              borderBottom: 1,
-              borderColor: 'divider',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
+          <IconButton
+            onClick={onClose}
+            sx={{ position: 'absolute', top: 8, right: 8 }}
           >
-            <Typography variant="h6">{mindmapData.title}</Typography>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Tooltip title="Zoom Out">
-                <IconButton
-                  onClick={() => setZoom((prev) => Math.max(0.5, prev * 0.9))}
-                  disabled={zoom <= 0.5}
-                >
-                  <ZoomOutIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Reset Zoom">
-                <IconButton
-                  onClick={() => {
-                    setZoom(1);
-                    setPanOffset({ x: 0, y: 0 });
-                  }}
-                >
-                  <RefreshIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Zoom In">
-                <IconButton
-                  onClick={() => setZoom((prev) => Math.min(2, prev * 1.1))}
-                  disabled={zoom >= 2}
-                >
-                  <ZoomInIcon />
-                </IconButton>
-              </Tooltip>
-              <IconButton onClick={onClose}>
-                <CloseIcon />
-              </IconButton>
-            </Box>
-          </Box>
-
-          {/* Mindmap Content */}
-          <Box
-            onWheel={handleWheel}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseLeave}
-            sx={{
-              height: 'calc(100% - 64px)',
-              overflow: 'hidden',
-              position: 'relative',
-              cursor: isDragging ? 'grabbing' : 'grab',
-            }}
-          >
-            {isGenerating ? (
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '100%',
-                }}
-              >
-                <CircularProgress />
-              </Box>
-            ) : (
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
-                  transformOrigin: 'center',
-                  transition: isDragging ? 'none' : 'transform 0.3s ease',
-                }}
-              >
-                {getVisibleNodes().map(({ node, level, isLast }, index) => {
-                  const colors = getLevelColors(level);
-                  const hasNodeChildren = hasChildren(node.id);
-                  const isExpanded = expandedNodes.has(node.id);
-
-                  return (
-                    <Box
-                      key={node.id}
-                      onClick={() => handleNodeClick(node.id, hasNodeChildren)}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        mb: isLast ? 0 : 2,
-                        pl: level * 4,
-                        transition: 'all 0.3s ease',
-                        cursor: hasNodeChildren ? 'pointer' : 'default',
-                      }}
+            <CloseIcon />
+          </IconButton>
+          {!mindmapData ? (
+            <Box sx={{ textAlign: 'center', width: '100%' }}>
+              <Typography variant="h5" gutterBottom>
+                {isGenerating ? 'Generating Mindmap...' : 'Error Loading Mindmap'}
+              </Typography>
+              {isGenerating ? (
+                <CircularProgress sx={{ my: 2 }} />
+              ) : (
+                <>
+                  <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                    Unable to load mindmap data. Please try again.
+                  </Typography>
+                  {onRetry && (
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={onRetry}
+                      startIcon={<RefreshIcon />}
+                      sx={{ mr: 2 }}
                     >
-                      {hasNodeChildren && (
-                        <ExpandIcon
-                          sx={{
-                            mr: 1,
-                            transform: isExpanded ? 'rotate(90deg)' : 'none',
-                            transition: 'transform 0.3s ease',
-                          }}
-                        />
-                      )}
-                      <Paper
-                        elevation={2}
-                        sx={{
-                          p: 2,
-                          bgcolor: colors.background,
-                          border: `1px solid ${colors.border}`,
-                          borderRadius: 2,
-                          minWidth: 150,
-                          '&:hover': {
-                            bgcolor: theme.palette.action.hover,
-                          },
-                        }}
-                      >
-                        <Typography
-                          variant="body1"
-                          sx={{
-                            color: colors.text,
-                            fontWeight: level === 0 ? 600 : 400,
-                          }}
-                        >
-                          {node.label}
-                        </Typography>
-                      </Paper>
-                    </Box>
-                  );
-                })}
-              </Box>
-            )}
-          </Box>
+                      Retry
+                    </Button>
+                  )}
+                </>
+              )}
+              <Button variant="outlined" onClick={onClose} sx={{ mt: 2 }}>
+                Close
+              </Button>
+            </Box>
+          ) : (
+            <Box sx={{ width: '100%', height: '70vh', overflow: 'auto', bgcolor: 'background.default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg ref={svgRef} style={{ display: 'block' }} />
+            </Box>
+          )}
         </Paper>
       </Fade>
     </Modal>

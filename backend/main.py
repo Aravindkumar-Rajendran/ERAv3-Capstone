@@ -492,7 +492,7 @@ async def get_conversation_history(
 
 
 
-@app.post("/interact", response_model=QuizResponse)
+@app.post("/interact-quiz", response_model=QuizResponse)
 async def generate_interactives(
     current_user: dict = Depends(get_current_user),
     topics: List[str] = Form(None),

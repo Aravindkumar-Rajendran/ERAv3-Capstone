@@ -292,34 +292,20 @@ export const InteractivePage: React.FC = () => {
       formData.append('project_id', projectId);
       selectedTopics.forEach(topic => formData.append('topics', topic));
       
-      console.log('🚀 MINDMAP DEBUG: Sending request with topics:', selectedTopics, 'project_id:', projectId);
-      
       const response = await fetch(ROUTES.INTERACT_MINDMAP, {
         method: 'POST',
         body: formData,
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
-      console.log('📡 MINDMAP DEBUG: Response status:', response.status, response.ok);
-      
       if (!response.ok) throw new Error('Mindmap generation failed');
       
       const result = await response.json();
-      console.log('📋 MINDMAP DEBUG: Full result from backend:', result);
-      console.log('🧠 MINDMAP DEBUG: mindmap_data structure:', result.mindmap_data);
-      console.log('🔍 MINDMAP DEBUG: mindmap_data type:', typeof result.mindmap_data);
-      console.log('✅ MINDMAP DEBUG: mindmap_data exists?', !!result.mindmap_data);
-      
-      if (result.mindmap_data) {
-        console.log('🏗️ MINDMAP DEBUG: mindmap_data.levels:', result.mindmap_data.levels);
-        console.log('📊 MINDMAP DEBUG: mindmap_data.title:', result.mindmap_data.title);
-      }
       
       setActiveMindmap(result.mindmap_data);
       setIsMindmapOpen(true);
       setShowOptions(false); // Hide options after successful generation
     } catch (e) {
-      console.error('❌ MINDMAP DEBUG: Error:', e);
       alert('Failed to generate mindmap.');
     }
     setIsGenerating(false);

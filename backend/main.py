@@ -311,7 +311,7 @@ async def upload(
                 merged_topics = [t.strip() for t in topics if t and t.strip()]
             database_client.write_topics(project_id, merged_topics, user_id=current_user["user_id"])
             # Index only the new topics/chunks for this upload
-            indexer.create_index_with_topics(conversation_id, chunks, topics)
+            indexer.create_index_with_topics(conversation_id, chunks, topics, project_id=project_id)
         else:
             print("No chunks/topics to index for this upload. Skipping ChromaDB indexing.")
         # Store the source in the database

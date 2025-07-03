@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Paper, Avatar } from '@mui/material';
-import { SmartToy as BotIcon, Person as UserIcon } from '@mui/icons-material';
+import { AutoFixHigh as WizardIcon, Person as UserIcon } from '@mui/icons-material';
 
 interface ChatMessageProps {
   message: {
@@ -32,7 +32,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
         }}
       >
         {isBot ? (
-          <BotIcon sx={{ fontSize: 20 }} />
+          <WizardIcon sx={{ fontSize: 20 }} />
         ) : (
           <UserIcon sx={{ fontSize: 20 }} />
         )}

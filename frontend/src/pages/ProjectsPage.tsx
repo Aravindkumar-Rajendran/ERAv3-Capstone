@@ -20,7 +20,7 @@ import {
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Folder as FolderIcon,
+  AutoFixHigh as AutoFixHighIcon,
   Logout as LogoutIcon,
 } from '@mui/icons-material';
 import { ROUTES } from '../services/routes';
@@ -139,7 +139,7 @@ const ProjectsPage = () => {
             gap: 1,
           }}
         >
-          <FolderIcon /> My Projects
+          <AutoFixHighIcon />WhiZardLM
         </Typography>
         <IconButton
           onClick={handleLogout}

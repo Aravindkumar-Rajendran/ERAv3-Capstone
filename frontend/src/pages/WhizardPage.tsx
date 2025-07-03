@@ -81,7 +81,7 @@ export const WhizardPage = () => {
   const [conversations, setConversations] = useState<any[]>([]);
 
   // Notification state
-  const [notification, setNotification] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ message: string | null; type: 'success' | 'error' } | null>(null);
 
   // Add refs to break circular dependencies
   const fetchConversationsRef = useRef<(() => Promise<void>) | null>(null);
@@ -139,7 +139,7 @@ export const WhizardPage = () => {
   const fetchConversations = useCallback(async () => {
     if (!token || !projectId) {
       console.log('Missing token or project ID for fetching conversations');
-      setNotification('Authentication required to load chat history.');
+      setNotification({ message: 'Authentication required to load chat history.', type: 'error' });
       return;
     }
 
@@ -240,7 +240,7 @@ export const WhizardPage = () => {
       }
     } catch (e) {
       console.error('Error fetching conversations:', e);
-      setNotification(e instanceof Error ? e.message : 'Failed to load chat history.');
+      setNotification({ message: e instanceof Error ? e.message : 'Failed to load chat history.', type: 'error' });
       setConversations([]);
     }
   }, [token, projectId, conversationId]);
@@ -288,7 +288,7 @@ export const WhizardPage = () => {
         } catch (error) {
           console.error('Error loading conversation:', error);
           // Don't clear conversationId here, just show error
-          setNotification('Failed to load conversation. Please try again.');
+          setNotification({ message: 'Failed to load conversation. Please try again.', type: 'error' });
         }
       }
     };
@@ -298,13 +298,13 @@ export const WhizardPage = () => {
 
   const handleConversationClick = useCallback(async (selectedConversationId: string) => {
     if (!token) {
-      setNotification('Authentication required.');
+      setNotification({ message: 'Authentication required.', type: 'error' });
       return;
     }
 
     if (!selectedConversationId) {
       console.error('No conversation ID provided');
-      setNotification('Invalid conversation selected.');
+      setNotification({ message: 'Invalid conversation selected.', type: 'error' });
       return;
     }
 
@@ -347,7 +347,10 @@ export const WhizardPage = () => {
       ]);
     } catch (err) {
       console.error('Error loading conversation:', err);
-      setNotification(err instanceof Error ? err.message : 'Failed to load conversation messages.');
+      setNotification({ 
+        message: err instanceof Error ? err.message : 'Failed to load conversation messages.',
+        type: 'error'
+      });
       setMessages([{ 
         sender: 'whizard', 
         text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.' 
@@ -387,12 +390,12 @@ export const WhizardPage = () => {
 
   const handleNewChat = useCallback(async () => {
     if (!projectId) {
-      setNotification('Project ID is required.');
+      setNotification({ message: 'Project ID is required.', type: 'error' });
       return;
     }
     
     if (sources.length === 0) {
-      setNotification('Please add at least one source before starting a new chat.');
+      setNotification({ message: 'Please add at least one source before starting a new chat.', type: 'error' });
       return;
     }
 
@@ -415,7 +418,10 @@ export const WhizardPage = () => {
       }
     } catch (error) {
       console.error('New chat error:', error);
-      setNotification(error instanceof Error ? error.message : 'Failed to start a new chat.');
+      setNotification({ 
+        message: error instanceof Error ? error.message : 'Failed to start a new chat.',
+        type: 'error'
+      });
     }
   }, [projectId, sources.length, createNewConversation]);
 
@@ -432,13 +438,13 @@ export const WhizardPage = () => {
   const handleUpload = async () => {
     // File size check (PDF)
     if (selectedFile && selectedFile.size > 5 * 1024 * 1024) {
-      setNotification('PDF file size must be 5 MB or less.');
+      setNotification({ message: 'PDF file size must be 5 MB or less.', type: 'error' });
       setTimeout(() => setNotification(null), 3000);
       return;
     }
     // Text length check
     if (userContent && userContent.length > 5000) {
-      setNotification('Text input must be 5000 characters or less.');
+      setNotification({ message: 'Text input must be 5000 characters or less.', type: 'error' });
       setTimeout(() => setNotification(null), 3000);
       return;
     }
@@ -447,7 +453,7 @@ export const WhizardPage = () => {
       return;
     }
     if (!projectId) {
-      setNotification('Project ID is required.');
+      setNotification({ message: 'Project ID is required.', type: 'error' });
       return;
     }
 
@@ -533,12 +539,15 @@ export const WhizardPage = () => {
       setShowUploadModal(false);
       
       // Show success message
-      setNotification('Content uploaded successfully!');
+      setNotification({ message: 'Content uploaded successfully!', type: 'success' });
       setTimeout(() => setNotification(null), 3000);
 
     } catch (error) {
       console.error('Upload error:', error);
-      setNotification(error instanceof Error ? error.message : 'Failed to process content. Please try again.');
+      setNotification({ 
+        message: error instanceof Error ? error.message : 'Failed to process content. Please try again.',
+        type: 'error'
+      });
       setConversationId(null);
       setTopics([]);
       setShowTopics(false);
@@ -566,12 +575,12 @@ export const WhizardPage = () => {
     if (!input.trim() || isChatLoading) return;
 
     if (!conversationId) {
-      setNotification('Please upload content or select a conversation first.');
+      setNotification({ message: 'Please upload content or select a conversation first.', type: 'error' });
       return;
     }
 
     if (!projectId) {
-      setNotification('Project ID is required.');
+      setNotification({ message: 'Project ID is required.', type: 'error' });
       return;
     }
 
@@ -635,7 +644,10 @@ export const WhizardPage = () => {
         text: 'Sorry, I encountered an error. Please try again.'
       };
       setMessages(prev => [...prev, errorMessage]);
-      setNotification(error instanceof Error ? error.message : 'Failed to send message. Please try again.');
+      setNotification({ 
+        message: error instanceof Error ? error.message : 'Failed to send message. Please try again.',
+        type: 'error'
+      });
     }
 
     setIsChatLoading(false);
@@ -652,7 +664,7 @@ export const WhizardPage = () => {
   const handleGenerateMagic = async () => {
     if (!projectId) return;
     if (sources.length === 0) {
-      setNotification('Please add at least one source to create interactives.');
+      setNotification({ message: 'Please add at least one source to create interactives.', type: 'error' });
       setTimeout(() => setNotification(null), 3000);
       return;
     }
@@ -796,7 +808,7 @@ export const WhizardPage = () => {
           >
             Back
           </Button>
-          {/* New Chat button at top right, only on md+ screens */}
+          {/* New Chat button for both mobile and desktop */}
           <Button
             variant="outlined"
             size="small"
@@ -807,7 +819,6 @@ export const WhizardPage = () => {
               right: 16,
               top: '50%',
               transform: 'translateY(-50%)',
-              display: { xs: 'none', md: 'inline-flex' }
             }}
           >
             New Chat
@@ -825,7 +836,10 @@ export const WhizardPage = () => {
               variant="outlined"
               size="small"
               onClick={() => setShowTopics(!showTopics)}
-              sx={{ borderRadius: 2 }}
+              sx={{ 
+                borderRadius: 2,
+                display: 'none' // Hide this button as we're using bottom navigation now
+              }}
             >
               {showTopics ? 'Chat' : 'History'}
             </Button>
@@ -986,7 +1000,7 @@ export const WhizardPage = () => {
                       handleConversationClick(conv.id);
                     } else {
                       console.error('Conversation missing ID:', conv);
-                      setNotification('Invalid conversation data.');
+                      setNotification({ message: 'Invalid conversation data.', type: 'error' });
                     }
                   }}
                   selected={conv.id === conversationId}
@@ -1033,9 +1047,7 @@ export const WhizardPage = () => {
           value={mobileView}
           onChange={(_, newValue) => {
             setMobileView(newValue);
-            if (newValue === 'sources') {
-              setShowUploadModal(true);
-            } else if (newValue === 'interactive') {
+            if (newValue === 'interactive') {
               handleGenerateMagic();
             }
           }}
@@ -1063,6 +1075,92 @@ export const WhizardPage = () => {
           />
         </BottomNavigation>
       </Paper>
+
+      {/* Mobile Sources View */}
+      <Box sx={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 56, // Height of bottom navigation
+        bgcolor: 'background.paper',
+        zIndex: 1200,
+        display: { xs: mobileView === 'sources' ? 'block' : 'none', md: 'none' },
+        overflowY: 'auto',
+      }}>
+        {/* Sources Header */}
+        <Box sx={{
+          p: 2,
+          borderBottom: 1,
+          borderColor: 'divider',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          bgcolor: 'background.paper',
+          position: 'sticky',
+          top: 0,
+          zIndex: 1,
+        }}>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>Sources</Typography>
+        </Box>
+
+        {/* Sources List */}
+        <Box sx={{ p: 2 }}>
+          <List sx={{ mb: 8 }}> {/* Add bottom margin for FAB */}
+            {sources.length === 0 ? (
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center',
+                justifyContent: 'center',
+                py: 4,
+                textAlign: 'center'
+              }}>
+                <Typography color="text.secondary" sx={{ mb: 1 }}>
+                  No sources yet
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Click the + button below to add sources
+                </Typography>
+              </Box>
+            ) : (
+              sources.map((src, idx) => (
+                <ListItemButton 
+                  key={src.id || idx}
+                  sx={{
+                    borderRadius: 1,
+                    mb: 1,
+                    bgcolor: 'background.paper',
+                    boxShadow: 1,
+                  }}
+                >
+                  <ListItemText 
+                    primary={src.name || src.filename || `Source ${idx + 1}`}
+                    secondary={src.type || ''}
+                    primaryTypographyProps={{ fontWeight: 500 }}
+                  />
+                </ListItemButton>
+              ))
+            )}
+          </List>
+        </Box>
+      </Box>
+
+      {/* Mobile Upload FAB */}
+      <Fab
+        color="primary"
+        aria-label="add source"
+        onClick={() => setShowUploadModal(true)}
+        sx={{
+          position: 'fixed',
+          right: 16,
+          bottom: 72, // Position above bottom navigation
+          display: { xs: mobileView === 'sources' ? 'flex' : 'none', md: 'none' },
+          zIndex: 1250,
+        }}
+      >
+        <AddIcon />
+      </Fab>
 
       {/* Mobile Views */}
       {/* Sources View */}
@@ -1098,22 +1196,6 @@ export const WhizardPage = () => {
           )}
         </List>
       </Box>
-
-      {/* Mobile Upload FAB */}
-      <Fab
-        color="primary"
-        aria-label="add source"
-        onClick={() => setShowUploadModal(true)}
-        sx={{
-          position: 'fixed',
-          right: 16,
-          bottom: 72, // Position above bottom navigation
-          display: { xs: mobileView === 'sources' ? 'flex' : 'none', md: 'none' },
-          zIndex: 1250,
-        }}
-      >
-        <AddIcon />
-      </Fab>
 
       {/* History View */}
       <Box sx={{
@@ -1300,8 +1382,11 @@ export const WhizardPage = () => {
         onClose={() => setNotification(null)}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert severity="error" onClose={() => setNotification(null)}>
-          {notification}
+        <Alert 
+          severity={notification?.type || 'error'} 
+          onClose={() => setNotification(null)}
+        >
+          {notification?.message}
         </Alert>
       </Snackbar>
     </Box>

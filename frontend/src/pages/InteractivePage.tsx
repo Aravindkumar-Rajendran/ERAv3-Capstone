@@ -9,17 +9,19 @@ import { QuizData } from '../types/quiz';
 import { TimelineData } from '../types/timeline';
 import { MindmapData } from '../types/mindmap';
 import { FlashcardData } from '../types/flashcard';
-import { Box, Paper, Typography, Button, Grid, List, ListItem, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, Card, CardContent, CardActions, Chip } from '@mui/material';
+import { Box, Paper, Typography, Button, Grid, List, ListItem, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions, Card, CardContent, CardActions, Chip, Container, TextField, CircularProgress, IconButton, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import { ListItemButton } from '@mui/material';
 import { 
   Quiz as QuizIcon,
   Style as StyleIcon,
   AccountTree,
-  Timeline
+  Timeline,
+  Add as AddIcon,
+  History as HistoryIcon,
+  GridView as GridViewIcon,
 } from '@mui/icons-material';
 import { Snackbar } from '@mui/material';
 import { Alert } from '@mui/material';
-import { CircularProgress } from '@mui/material';
 import { ROUTES } from '../services/routes';
 
 // Add type for interactive history entry
@@ -57,6 +59,8 @@ export const InteractivePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [topicsLoading, setTopicsLoading] = useState(false);
+  // Add state for mobile view
+  const [mobileView, setMobileView] = useState<'grid' | 'history'>('grid');
 
   useEffect(() => {
     if (location.state && location.state.selectedTopics) {
@@ -376,6 +380,33 @@ export const InteractivePage: React.FC = () => {
           </Button>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>Interactive Learning</Typography>
         </Box>
+
+        {/* Mobile View Toggle Buttons */}
+        <ToggleButtonGroup
+          value={mobileView}
+          exclusive
+          onChange={(_, newView) => {
+            if (newView !== null) {
+              setMobileView(newView);
+            }
+          }}
+          size="small"
+          sx={{ 
+            display: { xs: 'flex', md: 'none' },
+            '& .MuiToggleButton-root': {
+              border: 'none',
+              borderRadius: 1,
+              px: 1,
+            }
+          }}
+        >
+          <ToggleButton value="grid" aria-label="main grid">
+            <GridViewIcon />
+          </ToggleButton>
+          <ToggleButton value="history" aria-label="history">
+            <HistoryIcon />
+          </ToggleButton>
+        </ToggleButtonGroup>
       </Box>
 
       {/* Main Content with Right Sidebar */}
@@ -391,9 +422,12 @@ export const InteractivePage: React.FC = () => {
         <Box sx={{
           flex: 1,
           p: { xs: 2, sm: 3 },
-          display: 'grid',
+          display: { 
+            xs: mobileView === 'grid' ? 'grid' : 'none',
+            md: 'grid'
+          },
           gridTemplateColumns: {
-            xs: '1fr',
+            xs: 'repeat(2, 1fr)',
             sm: 'repeat(2, 1fr)',
             md: 'repeat(2, 1fr)',
             lg: 'repeat(2, 1fr)'
@@ -502,14 +536,17 @@ export const InteractivePage: React.FC = () => {
             </CardActions>
           </Card>
         </Box>
-        {/* Interactive History Sidebar */}
+        {/* Interactive History Sidebar - Modified for mobile */}
         <Box sx={{
           width: { xs: '100%', md: 340 },
           minWidth: { md: 280 },
           maxWidth: 400,
           bgcolor: 'background.paper',
           p: 2,
-          display: { xs: 'none', md: 'flex' },
+          display: { 
+            xs: mobileView === 'history' ? 'flex' : 'none',
+            md: 'flex'
+          },
           flexDirection: 'column',
           overflowY: 'auto',
           height: '100%',

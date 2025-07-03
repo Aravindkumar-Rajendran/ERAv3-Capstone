@@ -17,9 +17,20 @@ import {
   Alert,
   Snackbar,
   CircularProgress,
+  BottomNavigation,
+  BottomNavigationAction,
+  Paper,
+  Fab,
 } from '@mui/material';
 import { ChatMessage, ChatInput } from '../components/chat';
-import { Upload as UploadIcon } from '@mui/icons-material';
+import { 
+  Upload as UploadIcon,
+  Chat as ChatIcon,
+  AutoFixHigh as InteractiveIcon,
+  History as HistoryIcon,
+  Source as SourceIcon,
+  Add as AddIcon,
+} from '@mui/icons-material';
 import { ROUTES } from '../services/routes';
 
 interface Message {
@@ -76,6 +87,9 @@ export const WhizardPage = () => {
   const fetchConversationsRef = useRef<(() => Promise<void>) | null>(null);
   const handleNewChatRef = useRef<(() => Promise<void>) | null>(null);
   const handleConversationClickRef = useRef<((id: string) => Promise<void>) | null>(null);
+
+  // Add new state for mobile navigation
+  const [mobileView, setMobileView] = useState<'sources' | 'chat' | 'interactive' | 'history'>('chat');
 
   // Add resize listener
   useEffect(() => {
@@ -680,12 +694,12 @@ export const WhizardPage = () => {
     <Box sx={{ height: '100vh', display: 'flex', bgcolor: 'background.default' }}>
       {/* Left Sidebar: Sources & Upload */}
       <Box sx={{
-        width: { xs: '100%', md: 300 },
+        width: { xs: 0, md: 300 }, // Hide on mobile
         bgcolor: 'grey.100',
         borderRight: 1,
         borderColor: 'divider',
         p: 2,
-        display: { xs: showTopics ? 'none' : 'flex', md: 'flex' },
+        display: { xs: 'none', md: 'flex' }, // Hide on mobile
         flexDirection: 'column',
         gap: 2,
         overflowY: 'auto',
@@ -754,7 +768,8 @@ export const WhizardPage = () => {
         minWidth: 0,
         height: '100vh',
         overflow: 'hidden',
-        bgcolor: '#f8f9fa'
+        bgcolor: '#f8f9fa',
+        pb: { xs: 7, md: 0 }, // Add padding for mobile bottom nav
       }}>
         {/* Header with Back Button */}
         <Box sx={{
@@ -864,19 +879,20 @@ export const WhizardPage = () => {
         {/* Chat Input */}
         <Box sx={{
           position: 'absolute',
-          bottom: 0,
+          bottom: { xs: 56, md: 0 }, // Position above bottom navigation on mobile
           left: 0,
           right: 0,
           px: { xs: 2, md: 3 },
-          pb: 2,
+          pb: { xs: 2, md: 2 },
           pt: 1,
           bgcolor: 'background.paper',
           borderTop: 1,
           borderColor: 'divider',
           backdropFilter: 'blur(8px)',
           boxShadow: '0px -4px 10px rgba(0, 0, 0, 0.05)',
-          display: { xs: showTopics ? 'none' : 'block', md: 'block' },
-          width: '100%'
+          display: { xs: mobileView === 'chat' ? 'block' : 'none', md: 'block' },
+          width: '100%',
+          zIndex: 1250, // Ensure it's above the bottom navigation
         }}>
           <Box sx={{ 
             width: '100%',
@@ -899,12 +915,12 @@ export const WhizardPage = () => {
 
       {/* Right Sidebar: Interactive, Chat History & New Chat */}
       <Box sx={{
-        width: { xs: '100%', md: 300 },
+        width: { xs: 0, md: 300 }, // Hide on mobile
         bgcolor: 'grey.50',
         borderLeft: 1,
         borderColor: 'divider',
         p: 2,
-        display: { xs: showTopics ? 'flex' : 'none', md: 'flex' },
+        display: { xs: 'none', md: 'flex' }, // Hide on mobile
         flexDirection: 'column',
         gap: 2,
         overflowY: 'auto',
@@ -1000,6 +1016,136 @@ export const WhizardPage = () => {
             )}
           </List>
         </Box>
+      </Box>
+
+      {/* Mobile Bottom Navigation */}
+      <Paper sx={{ 
+        position: 'fixed', 
+        bottom: 0, 
+        left: 0, 
+        right: 0, 
+        display: { xs: 'block', md: 'none' },
+        zIndex: 1300,
+        borderTop: 1,
+        borderColor: 'divider',
+      }} elevation={3}>
+        <BottomNavigation
+          value={mobileView}
+          onChange={(_, newValue) => {
+            setMobileView(newValue);
+            if (newValue === 'sources') {
+              setShowUploadModal(true);
+            } else if (newValue === 'interactive') {
+              handleGenerateMagic();
+            }
+          }}
+          showLabels
+        >
+          <BottomNavigationAction 
+            label="Sources" 
+            icon={<SourceIcon />} 
+            value="sources"
+          />
+          <BottomNavigationAction 
+            label="Chat" 
+            icon={<ChatIcon />} 
+            value="chat"
+          />
+          <BottomNavigationAction 
+            label="Interactive" 
+            icon={<InteractiveIcon />} 
+            value="interactive"
+          />
+          <BottomNavigationAction 
+            label="History" 
+            icon={<HistoryIcon />} 
+            value="history"
+          />
+        </BottomNavigation>
+      </Paper>
+
+      {/* Mobile Views */}
+      {/* Sources View */}
+      <Box sx={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 56, // Height of bottom navigation
+        bgcolor: 'background.paper',
+        zIndex: 1200,
+        display: { xs: mobileView === 'sources' ? 'block' : 'none', md: 'none' },
+        overflowY: 'auto',
+        p: 2,
+      }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>Sources</Typography>
+        <List sx={{ mb: 8 }}> {/* Add bottom margin for FAB */}
+          {sources.length === 0 ? (
+            <ListItemText 
+              primary="No sources yet" 
+              secondary="Click the + button below to add sources"
+              sx={{ px: 2, py: 1, color: 'text.secondary' }} 
+            />
+          ) : (
+            sources.map((src, idx) => (
+              <ListItemButton key={src.id || idx}>
+                <ListItemText 
+                  primary={src.name || src.filename || `Source ${idx + 1}`}
+                  secondary={src.type || ''}
+                />
+              </ListItemButton>
+            ))
+          )}
+        </List>
+      </Box>
+
+      {/* Mobile Upload FAB */}
+      <Fab
+        color="primary"
+        aria-label="add source"
+        onClick={() => setShowUploadModal(true)}
+        sx={{
+          position: 'fixed',
+          right: 16,
+          bottom: 72, // Position above bottom navigation
+          display: { xs: mobileView === 'sources' ? 'flex' : 'none', md: 'none' },
+          zIndex: 1250,
+        }}
+      >
+        <AddIcon />
+      </Fab>
+
+      {/* History View */}
+      <Box sx={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 56, // Height of bottom navigation
+        bgcolor: 'background.paper',
+        zIndex: 1200,
+        display: { xs: mobileView === 'history' ? 'block' : 'none', md: 'none' },
+        overflowY: 'auto',
+        p: 2,
+      }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>Chat History</Typography>
+        <List>
+          {conversations.map((conv: any) => (
+            <ListItemButton
+              key={conv.id}
+              onClick={() => {
+                handleConversationClick(conv.id);
+                setMobileView('chat');
+              }}
+              selected={conv.id === conversationId}
+            >
+              <ListItemText
+                primary={conv.title || `Conversation ${conv.id.slice(0, 8)}`}
+                secondary={conv.created_at ? new Date(conv.created_at).toLocaleString() : ''}
+              />
+            </ListItemButton>
+          ))}
+        </List>
       </Box>
 
       {/* Upload Modal */}

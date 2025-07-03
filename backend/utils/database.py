@@ -365,7 +365,7 @@ class DatabaseClient:
         
         if row:
             return {
-                "conversation_id": conversation_id,
+                "id": conversation_id,
                 "title": row[0],
                 "created_at": row[1],
                 "updated_at": row[2]
@@ -612,7 +612,7 @@ class DatabaseClient:
         conversations = []
         for row in rows:
             conversations.append({
-                "conversation_id": row[0],
+                "id": row[0],
                 "title": row[1],
                 "created_at": row[2],
                 "updated_at": row[3]

@@ -801,7 +801,13 @@ async def create_new_conversation(
         conversation_id = str(uuid.uuid4())
         title = f"Conversation {conversation_id[:8]}"
         database_client.create_conversation(conversation_id, title=title, user_id=current_user["user_id"], project_id=project_id)
-        return {"status": "success", "conversation_id": conversation_id, "title": title}
+        return {
+            "status": "success", 
+            "id": conversation_id,  # Changed from conversation_id to id
+            "title": title,
+            "created_at": None,  # Added to match frontend expectations
+            "updated_at": None    # Added to match frontend expectations
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create new conversation: {str(e)}")
 

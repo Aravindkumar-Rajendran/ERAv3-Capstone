@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -25,6 +25,13 @@ import { ROUTES } from '../services/routes';
 interface Message {
   sender: 'user' | 'whizard';
   text: string;
+}
+
+interface Conversation {
+  id: string;
+  title: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export const WhizardPage = () => {
@@ -64,6 +71,11 @@ export const WhizardPage = () => {
 
   // Notification state
   const [notification, setNotification] = useState<string | null>(null);
+
+  // Add refs to break circular dependencies
+  const fetchConversationsRef = useRef<(() => Promise<void>) | null>(null);
+  const handleNewChatRef = useRef<(() => Promise<void>) | null>(null);
+  const handleConversationClickRef = useRef<((id: string) => Promise<void>) | null>(null);
 
   // Add resize listener
   useEffect(() => {
@@ -109,53 +121,32 @@ export const WhizardPage = () => {
     console.log('Current conversation ID:', conversationId);
   }, [conversationId]);
 
-  // Load chat history from backend
-  useEffect(() => {
-    if (projectId && conversationId) {
-      const fetchChatHistory = async () => {
-        try {
-          const response = await fetch(ROUTES.CONVERSATIONS(conversationId), {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (!response.ok) throw new Error('Failed to fetch chat history');
-          const data = await response.json();
-          const msgs = (data.messages || []).map((msg: { type: string; content: string }) => ({
-            sender: msg.type === 'user' ? 'user' as const : 'whizard' as const,
-            text: msg.content
-          }));
-          const welcomeMsg: Message = {
-            sender: 'whizard',
-            text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.'
-          };
-          const last10 = msgs.slice(-10);
-          setMessages([welcomeMsg, ...last10]);
-        } catch (err) {
-          const defaultMsg: Message = {
-            sender: 'whizard',
-            text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.'
-          };
-          setMessages([defaultMsg]);
-        }
-      };
-      fetchChatHistory();
-    } else if (!conversationId) {
-      const defaultMsg: Message = {
-        sender: 'whizard',
-        text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.'
-      };
-      setMessages([defaultMsg]);
-    }
-  }, [projectId, conversationId, token]);
-
-  // Fetch conversations for chat history sidebar
-  const fetchConversations = async () => {
+  // Define fetchConversations before using it
+  const fetchConversations = useCallback(async () => {
     if (!token || !projectId) {
       console.log('Missing token or project ID for fetching conversations');
+      setNotification('Authentication required to load chat history.');
       return;
     }
 
     try {
+      // First check if we have any sources
+      const sourcesResponse = await fetch(ROUTES.SOURCES(projectId), {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!sourcesResponse.ok) {
+        throw new Error('Failed to fetch sources');
+      }
+
+      const sourcesData = await sourcesResponse.json();
+      const hasSources = sourcesData.sources && sourcesData.sources.length > 0;
+      setSources(sourcesData.sources || []);
+
+      // Fetch conversations
       console.log('Fetching conversations for project:', projectId);
       const resp = await fetch(ROUTES.AUTH_CONVERSATIONS(projectId), {
         headers: { 
@@ -165,57 +156,133 @@ export const WhizardPage = () => {
       });
 
       if (!resp.ok) {
-        throw new Error(`Failed to fetch conversations: ${resp.statusText}`);
+        const errorData = await resp.json().catch(() => ({}));
+        throw new Error(
+          errorData.detail || 
+          `Failed to fetch conversations: ${resp.status} ${resp.statusText}`
+        );
       }
 
       const data = await resp.json();
       console.log('Fetched conversations:', data);
       
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid response data received from server');
+      }
+
       if (!data.conversations || !Array.isArray(data.conversations)) {
-        console.warn('Invalid conversations data received:', data);
+        console.warn('No conversations data received:', data);
         setConversations([]);
+        
+        // If we have sources but no conversations, create a new one
+        if (hasSources && handleNewChatRef.current) {
+          await handleNewChatRef.current();
+        }
         return;
       }
 
       // Validate conversation objects and filter out invalid ones
-      const validConversations = data.conversations.filter((conv: any) => {
-        if (!conv || !conv.id) {
+      const validConversations = data.conversations.filter((conv: Conversation) => {
+        if (!conv || typeof conv !== 'object') {
           console.warn('Invalid conversation object:', conv);
+          return false;
+        }
+        if (!conv.id || typeof conv.id !== 'string') {
+          console.warn('Conversation missing valid ID:', conv);
           return false;
         }
         return true;
       });
 
       // Sort conversations by date (newest first)
-      const sortedConversations = validConversations.sort((a: any, b: any) => {
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      const sortedConversations = validConversations.sort((a: Conversation, b: Conversation) => {
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
       });
 
       setConversations(sortedConversations);
-      // Auto-select the most recent conversation if none is selected
-      if (!conversationId && sortedConversations.length > 0) {
-        const mostRecent = sortedConversations[0];
-        setConversationId(mostRecent.id);
-        // Also load its messages
-        handleConversationClick(mostRecent.id);
+
+      // If we have no conversations but have sources, create a new one
+      if (sortedConversations.length === 0 && hasSources && handleNewChatRef.current) {
+        await handleNewChatRef.current();
+        return;
+      }
+
+      // If we have a selected conversation, validate it exists
+      if (conversationId) {
+        const exists = sortedConversations.some((conv: Conversation) => conv.id === conversationId);
+        if (!exists) {
+          console.log('Selected conversation not found in list, selecting most recent');
+          if (sortedConversations.length > 0 && handleConversationClickRef.current) {
+            setConversationId(sortedConversations[0].id);
+            await handleConversationClickRef.current(sortedConversations[0].id);
+          } else {
+            setConversationId(null);
+          }
+        }
+      } else if (sortedConversations.length > 0 && handleConversationClickRef.current) {
+        // Auto-select the most recent conversation if none is selected
+        setConversationId(sortedConversations[0].id);
+        await handleConversationClickRef.current(sortedConversations[0].id);
       }
     } catch (e) {
       console.error('Error fetching conversations:', e);
-      setNotification('Failed to load chat history.');
+      setNotification(e instanceof Error ? e.message : 'Failed to load chat history.');
       setConversations([]);
     }
-  };
+  }, [token, projectId, conversationId]);
+
+  // Store fetchConversations in ref
+  useEffect(() => {
+    fetchConversationsRef.current = fetchConversations;
+  }, [fetchConversations]);
 
   // Load conversations when component mounts or project changes
   useEffect(() => {
-    if (token && projectId) {
+    if (token && projectId && fetchConversationsRef.current) {
       console.log('Initial conversations fetch for project:', projectId);
-      fetchConversations();
+      fetchConversationsRef.current();
     }
   }, [token, projectId]);
 
-  // Load messages for a selected conversation
-  const handleConversationClick = async (selectedConversationId: string) => {
+  // Separate effect for handling conversation selection
+  useEffect(() => {
+    const loadSelectedConversation = async () => {
+      if (conversationId && token) {
+        console.log('Loading selected conversation:', conversationId);
+        try {
+          const response = await fetch(ROUTES.CONVERSATIONS(conversationId), {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to load conversation');
+          }
+
+          const data = await response.json();
+          if (data.messages) {
+            const msgs = data.messages.map((msg: { type: string; content: string }) => ({
+              sender: msg.type === 'user' ? 'user' as const : 'whizard' as const,
+              text: msg.content
+            }));
+
+            setMessages([
+              { sender: 'whizard', text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.' },
+              ...msgs
+            ]);
+          }
+        } catch (error) {
+          console.error('Error loading conversation:', error);
+          // Don't clear conversationId here, just show error
+          setNotification('Failed to load conversation. Please try again.');
+        }
+      }
+    };
+
+    loadSelectedConversation();
+  }, [conversationId, token]);
+
+  const handleConversationClick = useCallback(async (selectedConversationId: string) => {
     if (!token) {
       setNotification('Authentication required.');
       return;
@@ -240,14 +307,18 @@ export const WhizardPage = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch chat history');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.detail || 
+          `Failed to fetch conversation: ${response.status} ${response.statusText}`
+        );
       }
 
       const data = await response.json();
       console.log('Conversation data:', data);
       
-      if (!data.messages) {
-        throw new Error('No messages found in response');
+      if (!data.messages || !Array.isArray(data.messages)) {
+        throw new Error('Invalid message data received from server');
       }
 
       const msgs = data.messages.map((msg: { type: string; content: string }) => ({
@@ -262,7 +333,7 @@ export const WhizardPage = () => {
       ]);
     } catch (err) {
       console.error('Error loading conversation:', err);
-      setNotification('Failed to load conversation messages.');
+      setNotification(err instanceof Error ? err.message : 'Failed to load conversation messages.');
       setMessages([{ 
         sender: 'whizard', 
         text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.' 
@@ -270,7 +341,78 @@ export const WhizardPage = () => {
     } finally {
       setIsChatLoading(false);
     }
-  };
+  }, [token]);
+
+  const createNewConversation = useCallback(async () => {
+    if (!projectId) {
+      throw new Error('Project ID is required.');
+    }
+
+    const formData = new FormData();
+    formData.append('project_id', projectId);
+    
+    const response = await fetch(ROUTES.NEW_CONVERSATION, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to start new chat');
+    }
+
+    const result = await response.json();
+    
+    if (!result.id) {
+      throw new Error('No conversation ID received');
+    }
+
+    return result.id;
+  }, [projectId, token]);
+
+  const handleNewChat = useCallback(async () => {
+    if (!projectId) {
+      setNotification('Project ID is required.');
+      return;
+    }
+    
+    if (sources.length === 0) {
+      setNotification('Please add at least one source before starting a new chat.');
+      return;
+    }
+
+    try {
+      console.log('Creating new chat for project:', projectId);
+      const newConversationId = await createNewConversation();
+      
+      console.log('New chat created:', newConversationId);
+      setConversationId(newConversationId);
+      setMessages([{ sender: 'whizard', text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.' }]);
+      
+      // Refresh chat history sidebar immediately
+      if (fetchConversationsRef.current) {
+        await fetchConversationsRef.current();
+      }
+      
+      // Select the newly created conversation
+      if (handleConversationClickRef.current) {
+        await handleConversationClickRef.current(newConversationId);
+      }
+    } catch (error) {
+      console.error('New chat error:', error);
+      setNotification(error instanceof Error ? error.message : 'Failed to start a new chat.');
+    }
+  }, [projectId, sources.length, createNewConversation]);
+
+  // Update refs when functions change
+  useEffect(() => {
+    handleNewChatRef.current = handleNewChat;
+  }, [handleNewChat]);
+
+  useEffect(() => {
+    handleConversationClickRef.current = handleConversationClick;
+  }, [handleConversationClick]);
 
   // Upload handler (used in both inline and modal)
   const handleUpload = async () => {
@@ -297,6 +439,24 @@ export const WhizardPage = () => {
 
     setIsUploading(true);
     try {
+      // First create a new conversation
+      const newConvFormData = new FormData();
+      newConvFormData.append('project_id', projectId);
+      
+      const newConvResponse = await fetch(ROUTES.NEW_CONVERSATION, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: newConvFormData
+      });
+
+      if (!newConvResponse.ok) {
+        throw new Error('Failed to create new conversation');
+      }
+
+      const newConvResult = await newConvResponse.json();
+      const newConversationId = newConvResult.id; // Using id instead of conversation_id
+
+      // Now upload the content
       const formData = new FormData();
       if (selectedFile) formData.append('files', selectedFile);
       if (userContent.trim()) formData.append('text', userContent);
@@ -318,16 +478,12 @@ export const WhizardPage = () => {
       const uploadResult = await uploadResponse.json();
       console.log('Upload result:', uploadResult);
 
-      if (!uploadResult.conversation_id) {
-        throw new Error('No conversation ID received from upload');
-      }
-
-      // Set conversation ID immediately
-      setConversationId(uploadResult.conversation_id);
-      console.log('Set conversation ID to:', uploadResult.conversation_id);
+      // Set conversation ID from the new conversation
+      setConversationId(newConversationId);
+      console.log('Set conversation ID to:', newConversationId);
 
       // Get topics
-      const topicsResponse = await fetch(ROUTES.TOPICS(uploadResult.conversation_id), {
+      const topicsResponse = await fetch(ROUTES.TOPICS(newConversationId), {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -355,7 +511,9 @@ export const WhizardPage = () => {
       
       // Refresh conversations list and select the new conversation
       await fetchConversations();
-      await handleConversationClick(uploadResult.conversation_id);
+      
+      // Load the conversation messages
+      await handleConversationClick(newConversationId);
       
       // Close the modal
       setShowUploadModal(false);
@@ -363,28 +521,6 @@ export const WhizardPage = () => {
       // Show success message
       setNotification('Content uploaded successfully!');
       setTimeout(() => setNotification(null), 3000);
-
-      // Initialize chat immediately after upload
-      const chatFormData = new FormData();
-      chatFormData.append('project_id', projectId);
-      
-      const chatResponse = await fetch(ROUTES.NEW_CONVERSATION, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: chatFormData
-      });
-
-      if (!chatResponse.ok) {
-        throw new Error('Failed to initialize chat');
-      }
-
-      const chatResult = await chatResponse.json();
-      if (!chatResult.conversation_id) {
-        throw new Error('No conversation ID received from chat initialization');
-      }
-
-      setConversationId(chatResult.conversation_id);
-      await handleConversationClick(chatResult.conversation_id);
 
     } catch (error) {
       console.error('Upload error:', error);
@@ -495,58 +631,6 @@ export const WhizardPage = () => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
-    }
-  };
-
-  // Handler for starting a new chat
-  const handleNewChat = async () => {
-    if (!projectId) {
-      setNotification('Project ID is required.');
-      return;
-    }
-    
-    if (sources.length === 0) {
-      setNotification('Please add at least one source before starting a new chat.');
-      return;
-    }
-
-    try {
-      console.log('Creating new chat for project:', projectId);
-      const formData = new FormData();
-      formData.append('project_id', projectId);
-      
-      const response = await fetch(ROUTES.NEW_CONVERSATION, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.detail || 
-          'Failed to start new chat'
-        );
-      }
-
-      const result = await response.json();
-      
-      if (!result.conversation_id) {
-        throw new Error('No conversation ID received');
-      }
-
-      console.log('New chat created:', result);
-      setConversationId(result.conversation_id);
-      setMessages([{ sender: 'whizard', text: 'Hi! I am WhiZard. Ask me anything about your uploaded sources.' }]);
-      
-      // Refresh chat history sidebar immediately
-      await fetchConversations();
-      
-      // Select the newly created conversation
-      await handleConversationClick(result.conversation_id);
-    } catch (error) {
-      console.error('New chat error:', error);
-      setNotification(error instanceof Error ? error.message : 'Failed to start a new chat.');
     }
   };
 

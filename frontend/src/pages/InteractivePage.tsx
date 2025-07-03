@@ -508,8 +508,6 @@ export const InteractivePage: React.FC = () => {
           minWidth: { md: 280 },
           maxWidth: 400,
           bgcolor: 'background.paper',
-          borderLeft: { md: 1, xs: 0 },
-          borderColor: 'divider',
           p: 2,
           display: { xs: 'none', md: 'flex' },
           flexDirection: 'column',
@@ -581,6 +579,20 @@ export const InteractivePage: React.FC = () => {
                   <ListItemButton
                     selected={selectedTopics.includes(topic)}
                     onClick={() => handleTopicSelect(topic)}
+                    sx={{
+                      borderRadius: 1,
+                      m: 0.5,
+                      '&.Mui-selected': {
+                        backgroundColor: 'primary.main',
+                        color: 'white',
+                        '&:hover': {
+                          backgroundColor: 'secondary.dark',
+                        },
+                        '& .MuiListItemText-primary': {
+                          color: 'white',
+                        }
+                      }
+                    }}
                   >
                     <ListItemText primary={topic} />
                   </ListItemButton>

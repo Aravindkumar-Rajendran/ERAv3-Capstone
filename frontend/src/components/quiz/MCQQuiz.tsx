@@ -33,6 +33,7 @@ interface QuestionState {
   isCorrect: boolean;
   showHint: boolean;
   isFirstAttempt: boolean;
+  showCorrectAnswer: boolean;
   score: number;
 }
 
@@ -59,6 +60,7 @@ export const MCQQuiz: React.FC<MCQQuizProps> = ({
       isCorrect: false,
       showHint: false,
       isFirstAttempt: true,
+      showCorrectAnswer: false,
       score: 0,
     }))
   );
@@ -91,8 +93,14 @@ export const MCQQuiz: React.FC<MCQQuizProps> = ({
       score: correct ? (currentState.isFirstAttempt ? 1 : 0.5) : 0,
     });
 
-    if (!correct && currentState.isFirstAttempt) {
-      updateQuestionState({ showHint: true });
+    if (!correct) {
+      if (currentState.isFirstAttempt) {
+        // First wrong attempt - show hint
+        updateQuestionState({ showHint: true });
+      } else {
+        // Second wrong attempt - show correct answer
+        updateQuestionState({ showCorrectAnswer: true });
+      }
     }
   };
 
@@ -119,24 +127,12 @@ export const MCQQuiz: React.FC<MCQQuizProps> = ({
       selectedAnswer: null,
       showFeedback: false,
       isFirstAttempt: false,
+      showCorrectAnswer: false,
     });
   };
 
   const getIndirectHint = () => {
-    const questionText = currentQuestion.question.toLowerCase();
-    if (questionText.includes('ocean')) {
-      return 'Think about the ocean that covers the largest area on our planet.';
-    } else if (questionText.includes('japan')) {
-      return 'This city is known for its bustling streets and neon lights.';
-    } else if (questionText.includes('planet') && questionText.includes('red')) {
-      return 'This planet appears reddish due to iron oxide on its surface.';
-    } else if (questionText.includes('romeo')) {
-      return 'This famous playwright wrote many tragedies and comedies.';
-    } else if (questionText.includes('atmosphere')) {
-      return 'This gas makes up the majority of the air we breathe.';
-    } else {
-      return 'Think carefully about the most logical answer.';
-    }
+    return currentQuestion.hint || 'Think carefully about the most logical answer.';
   };
 
   const calculateTotalScore = () => {
@@ -306,6 +302,32 @@ export const MCQQuiz: React.FC<MCQQuizProps> = ({
           >
             Try Again
           </Button>
+        </Paper>
+      )}
+
+      {currentState.showCorrectAnswer && (
+        <Paper
+          elevation={2}
+          sx={{
+            p: 2,
+            mb: 4,
+            bgcolor: 'error.light',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <TrophyIcon color="error" />
+            <Typography variant="body1" fontWeight="bold">
+              Correct Answer: {currentQuestion.options[currentQuestion.correctAnswer]}
+            </Typography>
+          </Box>
+          {currentQuestion.explanation && (
+            <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+              Explanation: {currentQuestion.explanation}
+            </Typography>
+          )}
         </Paper>
       )}
 

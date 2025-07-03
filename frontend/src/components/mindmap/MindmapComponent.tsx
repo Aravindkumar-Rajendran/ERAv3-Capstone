@@ -40,13 +40,18 @@ interface ExtendedMindmapComponentProps extends MindmapComponentProps {
 
 // Convert MindmapData to hierarchy structure
 const convertToHierarchy = (data: MindmapData): HierarchyNode => {
+  console.log('🔄 CONVERT DEBUG: Starting conversion with data:', data);
+  
   const root: HierarchyNode = {
     name: data.title,
     children: []
   };
 
+  console.log('🌳 CONVERT DEBUG: Created root node:', root.name);
+
   // Sort levels by level number
   const sortedLevels = [...data.levels].sort((a, b) => a.level - b.level);
+  console.log('📊 CONVERT DEBUG: Sorted levels:', sortedLevels.length, 'levels');
 
   // Create a map to store nodes by their IDs
   const nodeMap = new Map<string, HierarchyNode>();
@@ -54,12 +59,16 @@ const convertToHierarchy = (data: MindmapData): HierarchyNode => {
 
   // Process each level
   sortedLevels.forEach(level => {
+    console.log(`📊 CONVERT DEBUG: Processing level ${level.level} with ${level.nodes.length} nodes`);
+    
     level.nodes.forEach(node => {
       const hierarchyNode: HierarchyNode = {
         name: node.label,
         children: []
       };
       nodeMap.set(node.id, hierarchyNode);
+
+      console.log(`🔗 CONVERT DEBUG: Created node "${node.label}" with parent "${node.parent}"`);
 
       // Add to parent's children
       const parentNode = node.parent === null ? root : nodeMap.get(node.parent);
@@ -68,10 +77,14 @@ const convertToHierarchy = (data: MindmapData): HierarchyNode => {
           parentNode.children = [];
         }
         parentNode.children.push(hierarchyNode);
+        console.log(`✅ CONVERT DEBUG: Added "${node.label}" to parent`);
+      } else {
+        console.warn(`⚠️ CONVERT DEBUG: Parent "${node.parent}" not found for node "${node.label}"`);
       }
     });
   });
 
+  console.log('🏁 CONVERT DEBUG: Final hierarchy:', root);
   return root;
 };
 
@@ -84,6 +97,28 @@ export const MindmapComponent: React.FC<ExtendedMindmapComponentProps> = ({
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const theme = useTheme();
+
+  console.log('🎨 MINDMAP COMPONENT DEBUG: Received props:');
+  console.log('📊 mindmapData:', mindmapData);
+  console.log('🔍 mindmapData type:', typeof mindmapData);
+  console.log('✅ mindmapData exists?', !!mindmapData);
+  console.log('🚪 isOpen:', isOpen);
+  console.log('⚡ isGenerating:', isGenerating);
+
+  if (mindmapData) {
+    console.log('🏗️ MINDMAP COMPONENT DEBUG: mindmapData structure:');
+    console.log('📝 title:', mindmapData.title);
+    console.log('📋 description:', mindmapData.description);
+    console.log('🎨 theme:', mindmapData.theme);
+    console.log('📊 levels:', mindmapData.levels);
+    console.log('📊 levels length:', mindmapData.levels?.length);
+    
+    if (mindmapData.levels) {
+      mindmapData.levels.forEach((level, index) => {
+        console.log(`📊 Level ${level.level}:`, level.nodes?.length, 'nodes');
+      });
+    }
+  }
 
   useEffect(() => {
     if (!svgRef.current || !mindmapData) return;

@@ -373,7 +373,7 @@ async def chat(
                 status_code=400, 
                 detail="User input is too short. Please provide at least 2 characters."
             )
-        retriever = Retriever(conversation_id=conversation_id)
+        retriever = Retriever(project_id=project_id)
         # Retrieve context based on user input
         context = retriever.semantic_search(user_input)
         print(f"Retrieved context: {context}")

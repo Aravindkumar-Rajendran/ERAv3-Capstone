@@ -8,6 +8,7 @@ import { LoginPage } from './pages/LoginPage';
 import { WhizardPage } from './pages/WhizardPage';
 import { InteractivePage } from './pages/InteractivePage';
 import ProjectsPage from './pages/ProjectsPage';
+import LandingPage from './pages/index';
 import { theme } from './theme';
 import './styles/index.css';
 
@@ -34,6 +35,7 @@ function App() {
             <Routes>
               {/* Public routes */}
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/" element={<LandingPage />} />
               
               {/* Protected routes */}
               <Route
@@ -60,9 +62,6 @@ function App() {
                   </PrivateRoute>
                 }
               />
-              
-              {/* Redirect root to projects */}
-              <Route path="/" element={<Navigate to="/projects" replace />} />
               
               {/* Catch all route - redirect to login */}
               <Route path="*" element={<Navigate to="/login" replace />} />

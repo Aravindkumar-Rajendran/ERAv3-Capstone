@@ -54,7 +54,7 @@ const LandingPage: React.FC = () => {
           margin: '16px 0 0 0',
           maxWidth: 500,
         }}>
-          <span role="img" aria-label="wizard">🧙</span> Your magical guide to learning! Whether it's solving a tricky math problem, exploring the wonders of space, or writing an awesome story — WhiZardLM helps you think, ask, explore, and learn like a real wizard!
+          <span role="img" aria-label="wizard"></span> Your magical guide to learning! Whether it's solving a tricky math problem, exploring the wonders of space, or writing an awesome story - WhiZardLM helps you think, ask, explore, and learn like a real wizard!
         </p>
       </div>
 
@@ -86,6 +86,15 @@ const LandingPage: React.FC = () => {
           ]}
         />
         <FeatureTile
+          icon="🛡️"
+          title="Reduced Hallucinations"
+          description={[
+            'Answers are grounded in the resources you upload',
+            'Less chance of AI making things up',
+            'Context-aware: more accurate, relevant, and trustworthy',
+          ]}
+        />
+        <FeatureTile
           icon="🧠"
           title="Socratic Style Learning"
           description={[
@@ -101,15 +110,6 @@ const LandingPage: React.FC = () => {
             'Engaging tools built by coding agents',
             "Personalized and dynamic content based on the student's input",
             'Types of elements: Quizzes, Flashcards, Timelines, Mindmaps',
-          ]}
-        />
-        <FeatureTile
-          icon="🛡️"
-          title="Reduced Hallucinations"
-          description={[
-            'Answers are grounded in the resources you upload',
-            'Less chance of AI making things up',
-            'Context-aware: more accurate, relevant, and trustworthy',
           ]}
         />
       </div>

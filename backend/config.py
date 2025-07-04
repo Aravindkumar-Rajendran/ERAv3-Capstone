@@ -24,6 +24,8 @@ class Config:
         "http://127.0.0.1:3001",
         "http://192.168.1.7:3000",
         "http://192.168.1.7:3001",
+        "https://whizardlm.vercel.app",
+        "http://whizardlm.vercel.app"
     ]
     
     # File Upload Configuration

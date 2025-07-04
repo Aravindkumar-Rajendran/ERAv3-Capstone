@@ -1,6 +1,6 @@
 // Centralized API routes and base URL
 
-export const BASE_URL = "http://192.168.1.7:8000";
+export const BASE_URL = process.env.REACT_APP_BACKEND_API_URL;
 
 export const ROUTES = {
   PROJECTS: `${BASE_URL}/projects`,

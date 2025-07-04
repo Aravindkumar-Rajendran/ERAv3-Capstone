@@ -1,473 +1,277 @@
-import React, { useState } from 'react';
-import { MindmapComponentProps, MindmapNode } from '../../types/mindmap';
+import React, { useState, useEffect, useRef } from 'react';
+import { MindmapComponentProps, MindmapData, MindmapNode as MindmapNodeType } from '../../types/mindmap';
+import {
+  Box,
+  Button,
+  Typography,
+  IconButton,
+  Paper,
+  Modal,
+  Fade,
+  Tooltip,
+  CircularProgress,
+  useTheme,
+} from '@mui/material';
+import {
+  Close as CloseIcon,
+  ZoomIn as ZoomInIcon,
+  ZoomOut as ZoomOutIcon,
+  Refresh as RefreshIcon,
+  ChevronRight as ExpandIcon,
+} from '@mui/icons-material';
+import * as d3 from 'd3';
 
-// Helper function to get all nodes from the mindmap structure
-const getAllNodes = (nodes: MindmapNode[]): MindmapNode[] => {
-  let allNodes: MindmapNode[] = [];
-  const traverse = (nodeList: MindmapNode[]) => {
-    nodeList.forEach(node => {
-      allNodes.push(node);
-      if (node.children) {
-        traverse(node.children);
+interface HierarchyNode {
+  name: string;
+  children?: HierarchyNode[];
+}
+
+interface D3Node extends d3.HierarchyPointNode<HierarchyNode> {}
+
+interface D3Link extends d3.HierarchyLink<HierarchyNode> {
+  source: D3Node;
+  target: D3Node;
+}
+
+interface ExtendedMindmapComponentProps extends MindmapComponentProps {
+  onRetry?: () => void;
+  isGenerating?: boolean;
+}
+
+// Convert MindmapData to hierarchy structure
+const convertToHierarchy = (data: MindmapData): HierarchyNode => {
+  const root: HierarchyNode = {
+    name: data.title,
+    children: []
+  };
+
+  // Sort levels by level number
+  const sortedLevels = [...data.levels].sort((a, b) => a.level - b.level);
+
+  // Create a map to store nodes by their IDs
+  const nodeMap = new Map<string, HierarchyNode>();
+  nodeMap.set('root', root);
+
+  // Process each level
+  sortedLevels.forEach(level => {
+    level.nodes.forEach(node => {
+      const hierarchyNode: HierarchyNode = {
+        name: node.label,
+        children: []
+      };
+      nodeMap.set(node.id, hierarchyNode);
+
+      // Add to parent's children
+      const parentNode = node.parent === null ? root : nodeMap.get(node.parent);
+      if (parentNode) {
+        if (!parentNode.children) {
+          parentNode.children = [];
+        }
+        parentNode.children.push(hierarchyNode);
       }
     });
-  };
-  traverse(nodes);
-  return allNodes;
+  });
+
+  return root;
 };
 
-export const MindmapComponent = ({ 
-  mindmapData, 
-  isOpen, 
-  onClose, 
-  onComplete 
-}: MindmapComponentProps) => {
-  const [selectedNodeId, setSelectedNodeId] = useState<string>('root');
-  
-  // Initialize with ALL nodes expanded for complete visibility
-  const getInitialExpandedNodes = () => {
-    const expanded = new Set<string>();
-    const allNodes = getAllNodes(mindmapData.nodes);
-    allNodes.forEach(node => {
-      expanded.add(node.id);
-    });
-    return expanded;
-  };
-  
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(getInitialExpandedNodes());
-  const [viewedNodes, setViewedNodes] = useState<Set<string>>(new Set(['root']));
-  const [isCompleted, setIsCompleted] = useState(false);
+export const MindmapComponent: React.FC<ExtendedMindmapComponentProps> = ({
+  mindmapData,
+  isOpen,
+  onClose,
+  onRetry,
+  isGenerating = false,
+}) => {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const theme = useTheme();
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!mindmapData) {
+      return;
+    }
 
-  const findNodeById = (nodes: MindmapNode[], id: string): MindmapNode | null => {
-    for (const node of nodes) {
-      if (node.id === id) return node;
-      if (node.children) {
-        const found = findNodeById(node.children, id);
-        if (found) return found;
+    // Use a small delay to ensure SVG is mounted after Modal animation
+    const timer = setTimeout(() => {
+      if (!svgRef.current) {
+        return;
       }
-    }
-    return null;
-  };
 
-  const toggleNode = (nodeId: string) => {
-    const newExpanded = new Set(expandedNodes);
-    if (newExpanded.has(nodeId)) {
-      newExpanded.delete(nodeId);
-    } else {
-      newExpanded.add(nodeId);
-    }
-    setExpandedNodes(newExpanded);
-  };
+      try {
+        // Clear existing content
+        svgRef.current.innerHTML = '';
 
-  const selectNode = (nodeId: string) => {
-    setSelectedNodeId(nodeId);
-    setViewedNodes(prev => new Set([...Array.from(prev), nodeId]));
-  };
+        const margin = { top: 40, right: 90, bottom: 50, left: 90 };
+        const width = window.innerWidth - margin.left - margin.right;
+        const height = window.innerHeight - margin.top - margin.bottom;
 
-  const handleComplete = () => {
-    setIsCompleted(true);
-    if (onComplete) {
-      onComplete();
-    }
-  };
+        // Convert data to hierarchy structure
+        const hierarchyData = d3.hierarchy(convertToHierarchy(mindmapData));
 
-  const selectedNode = findNodeById(mindmapData.nodes, selectedNodeId);
-  const allNodes = getAllNodes(mindmapData.nodes);
-  const totalNodes = allNodes.length;
-  const exploredNodes = viewedNodes.size;
+        // Create tree layout with increased spacing
+        const treeLayout = d3.tree<HierarchyNode>()
+          .size([height, width])
+          .nodeSize([80, 160]); // Increased spacing
 
-  const renderNode = (node: MindmapNode, level: number = 0) => {
-    const isExpanded = expandedNodes.has(node.id);
-    const isSelected = selectedNodeId === node.id;
-    const hasChildren = node.children && node.children.length > 0;
+        const tree = treeLayout(hierarchyData) as unknown as d3.HierarchyPointNode<HierarchyNode>;
+        const descendants = tree.descendants() as d3.HierarchyPointNode<HierarchyNode>[];
+        const links = tree.links() as d3.HierarchyPointLink<HierarchyNode>[];
 
-    return (
-      <div key={node.id} style={{ marginLeft: `${level * 30}px`, marginBottom: '10px' }}>
-        <div
-          onClick={() => selectNode(node.id)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            padding: '8px 12px',
-            backgroundColor: isSelected 
-              ? `${mindmapData.theme.primaryColor}40` 
-              : 'rgba(255,255,255,0.1)',
-            border: isSelected 
-              ? `2px solid ${mindmapData.theme.primaryColor}` 
-              : '1px solid rgba(255,255,255,0.2)',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            maxWidth: '300px'
-          }}
-        >
-          {hasChildren && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleNode(node.id);
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                marginRight: '8px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                color: mindmapData.theme.primaryColor
-              }}
-            >
-              {isExpanded ? '▼' : '▶'}
-            </button>
-          )}
-          <div style={{
-            fontSize: node.type === 'root' ? '16px' : '14px',
-            fontWeight: node.type === 'root' ? 'bold' : 'normal',
-            color: mindmapData.theme.textColor
-          }}>
-            {node.type === 'root' ? '🧠' : '💡'} {node.label}
-          </div>
-        </div>
-        
-        {hasChildren && isExpanded && (
-          <div style={{ marginTop: '5px' }}>
-            {node.children?.map(child => renderNode(child, level + 1))}
-          </div>
-        )}
-      </div>
-    );
-  };
+        // Create SVG with better margins
+        const svg = d3.select(svgRef.current)
+          .attr("width", width + margin.left + margin.right)
+          .attr("height", height + margin.top + margin.bottom)
+          .append("g")
+          .attr("transform", `translate(${margin.left + width/4},${margin.top})`);
+
+        // Add links with curved paths
+        svg.selectAll(".link")
+          .data(links)
+          .enter()
+          .append("path")
+          .attr("class", "link")
+          .attr("fill", "none")
+          .attr("stroke", "#ccc")
+          .attr("stroke-width", 2)
+          .attr("d", d3.linkHorizontal<d3.HierarchyPointLink<HierarchyNode>, d3.HierarchyPointNode<HierarchyNode>>()
+            .x(d => d.y)
+            .y(d => d.x));
+
+        // Add nodes with improved styling
+        const nodes = svg.selectAll<SVGGElement, d3.HierarchyPointNode<HierarchyNode>>(".node")
+          .data(descendants)
+          .enter()
+          .append("g")
+          .attr("class", "node")
+          .attr("transform", d => `translate(${d.y},${d.x})`);
+
+        // Add node circles with better styling
+        nodes.append("circle")
+          .attr("r", 10)
+          .style("fill", "#fff")
+          .style("stroke", theme.palette.primary.main)
+          .style("stroke-width", 3)
+          .style("filter", "drop-shadow(0px 2px 3px rgba(0,0,0,0.2))");
+
+        // Add node labels with improved styling
+        nodes.append("text")
+          .attr("dy", "0.31em")
+          .attr("x", d => d.children ? -16 : 16)
+          .attr("text-anchor", d => d.children ? "end" : "start")
+          .text(d => d.data.name)
+          .style("font-family", theme.typography.fontFamily || "Arial")
+          .style("font-size", "14px")
+          .style("font-weight", d => d.depth === 0 ? "bold" : "normal")
+          .style("fill", theme.palette.text.primary)
+          .each(function(this: SVGTextElement) {
+            // Add background rectangle with improved styling
+            const bbox = this.getBBox();
+            const padding = 6;
+            
+            d3.select(this.parentNode as Element)
+              .insert("rect", "text")
+              .attr("x", bbox.x - padding)
+              .attr("y", bbox.y - padding)
+              .attr("width", bbox.width + (padding * 2))
+              .attr("height", bbox.height + (padding * 2))
+              .attr("fill", theme.palette.background.paper)
+              .attr("fill-opacity", 0.95)
+              .attr("rx", 6)
+              .style("filter", "drop-shadow(0px 2px 3px rgba(0,0,0,0.1))");
+          });
+
+        // Add improved zoom behavior
+        const zoom = d3.zoom<SVGSVGElement, unknown>()
+          .scaleExtent([0.3, 2])
+          .on("zoom", (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
+            svg.attr("transform", `translate(${event.transform.x},${event.transform.y}) scale(${event.transform.k})`);
+          });
+
+        d3.select(svgRef.current)
+          .call(zoom)
+          .call(zoom.translateTo, width / 3, height / 2);
+
+      } catch (error: unknown) {
+        // Silently handle any rendering errors
+      }
+    }, 100); // 100ms delay to allow Modal animation to complete
+
+    return () => clearTimeout(timer);
+  }, [mindmapData, theme]);
 
   return (
-    <div className="mindmap-overlay" style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 1000
-    }}>
-      <div className="mindmap-modal" style={{
-        backgroundColor: mindmapData.theme.backgroundColor,
-        borderRadius: '20px',
-        padding: '30px',
-        maxWidth: '1000px',
-        maxHeight: '80vh',
-        overflow: 'auto',
-        position: 'relative',
-        width: '95%',
-        color: mindmapData.theme.textColor,
-        fontFamily: mindmapData.theme.fontFamily
-      }}>
-        <button 
-          className="close-button"
-          onClick={onClose}
-          style={{
-            position: 'absolute',
-            top: '15px',
-            right: '20px',
-            background: 'none',
-            border: 'none',
-            fontSize: '24px',
-            cursor: 'pointer',
-            color: mindmapData.theme.textColor
-          }}
-        >
-          ×
-        </button>
-
-        {/* Completion Screen */}
-        {isCompleted && (
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
-            borderRadius: '20px',
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      closeAfterTransition
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Fade in={isOpen}>
+        <Paper
+          elevation={8}
+          sx={{
+            p: 2,
+            maxWidth: '90vw',
+            maxHeight: '90vh',
+            width: '100%',
+            height: '100%',
+            borderRadius: 2,
+            bgcolor: 'background.paper',
+            position: 'relative',
             display: 'flex',
             flexDirection: 'column',
-            justifyContent: 'center',
             alignItems: 'center',
-            zIndex: 1000
-          }}>
-            <div style={{ textAlign: 'center', color: 'white' }}>
-              <div style={{ fontSize: '60px', marginBottom: '20px' }}>🧠</div>
-              <h2 style={{ fontSize: '32px', marginBottom: '15px', color: mindmapData.theme.primaryColor }}>
-                Mindmap Explored!
-              </h2>
-              <p style={{ fontSize: '18px', marginBottom: '10px' }}>
-                You've explored the knowledge structure!
-              </p>
-              <p style={{ fontSize: '16px', marginBottom: '30px', opacity: 0.8 }}>
-                All {totalNodes} nodes explored successfully!
-              </p>
-              <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-                <button
-                  onClick={() => {
-                    setIsCompleted(false);
-                    setSelectedNodeId('root');
-                    setExpandedNodes(getInitialExpandedNodes());
-                    setViewedNodes(new Set(['root']));
-                  }}
-                  style={{
-                    background: 'linear-gradient(45deg, #2196f3, #42a5f5)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '20px',
-                    padding: '15px 25px',
-                    fontSize: '16px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    transition: 'transform 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                >
-                  🔄 Reset
-                </button>
-                <button
-                  onClick={onClose}
-                  style={{
-                    background: `linear-gradient(45deg, ${mindmapData.theme.primaryColor}, #66bb6a)`,
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '20px',
-                    padding: '15px 25px',
-                    fontSize: '16px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    transition: 'transform 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                >
-                  🏠 Return Home
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <h2 style={{ 
-            margin: 0, 
-            fontSize: '28px', 
-            background: `linear-gradient(45deg, ${mindmapData.theme.primaryColor}, #66bb6a)`,
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            textShadow: '0 0 20px rgba(76, 175, 80, 0.3)'
-          }}>
-            🧠 {mindmapData.title}
-          </h2>
-          {mindmapData.description && (
-            <p style={{ margin: '10px 0', opacity: 0.8 }}>{mindmapData.description}</p>
-          )}
-          <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'center', gap: '30px' }}>
-            <div style={{ fontSize: '16px' }}>
-              Total Nodes: {totalNodes}
-            </div>
-            <div style={{ fontSize: '16px' }}>
-              Viewed: {exploredNodes}
-            </div>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div style={{
-          backgroundColor: 'rgba(255,255,255,0.2)',
-          borderRadius: '10px',
-          height: '8px',
-          marginBottom: '30px',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            background: `linear-gradient(45deg, ${mindmapData.theme.primaryColor}, #66bb6a)`,
-            height: '100%',
-            width: `${(exploredNodes / totalNodes) * 100}%`,
-            transition: 'width 0.3s ease'
-          }} />
-        </div>
-
-        {/* Main Content */}
-        <div style={{ display: 'flex', gap: '30px', minHeight: '400px' }}>
-          {/* Left Panel - Tree View */}
-          <div style={{
-            flex: 1,
-            backgroundColor: 'rgba(255,255,255,0.05)',
-            borderRadius: '15px',
-            padding: '20px',
-            border: `2px solid ${mindmapData.theme.primaryColor}40`,
-            maxHeight: '400px',
-            overflow: 'auto'
-          }}>
-            <h3 style={{ 
-              marginTop: 0, 
-              marginBottom: '20px',
-              color: mindmapData.theme.primaryColor,
-              fontSize: '18px'
-            }}>
-              📋 Knowledge Structure
-            </h3>
-            {mindmapData.nodes.map(node => renderNode(node))}
-          </div>
-
-          {/* Right Panel - Selected Node Details */}
-          <div style={{
-            flex: 1,
-            backgroundColor: 'rgba(255,255,255,0.05)',
-            borderRadius: '15px',
-            padding: '20px',
-            border: `2px solid ${mindmapData.theme.primaryColor}40`
-          }}>
-            <h3 style={{ 
-              marginTop: 0, 
-              marginBottom: '20px',
-              color: mindmapData.theme.primaryColor,
-              fontSize: '18px'
-            }}>
-              🔍 Node Details
-            </h3>
-            
-            {selectedNode && (
-              <div>
-                <div style={{
-                  fontSize: '20px',
-                  fontWeight: 'bold',
-                  marginBottom: '15px',
-                  color: mindmapData.theme.textColor
-                }}>
-                  {selectedNode.type === 'root' ? '🧠' : '💡'} {selectedNode.label}
-                </div>
-                
-                <div style={{
-                  backgroundColor: selectedNode.type === 'root' 
-                    ? `${mindmapData.theme.primaryColor}20` 
-                    : 'rgba(255,255,255,0.1)',
-                  padding: '10px',
-                  borderRadius: '8px',
-                  marginBottom: '15px'
-                }}>
-                  <strong>Type:</strong> {selectedNode.type === 'root' ? 'Root Concept' : 'Sub-concept'}
-                </div>
-
-                {/* Node Description */}
-                {selectedNode.description && (
-                  <div style={{
-                    backgroundColor: 'rgba(255,255,255,0.08)',
-                    border: `1px solid ${mindmapData.theme.primaryColor}40`,
-                    padding: '15px',
-                    borderRadius: '8px',
-                    marginBottom: '15px',
-                    lineHeight: '1.5'
-                  }}>
-                    <strong style={{ color: mindmapData.theme.primaryColor, marginBottom: '8px', display: 'block' }}>
-                      📝 Description:
-                    </strong>
-                    <div style={{ 
-                      fontSize: '15px', 
-                      color: mindmapData.theme.textColor,
-                      opacity: 0.9
-                    }}>
-                      {selectedNode.description}
-                    </div>
-                  </div>
-                )}
-
-                {selectedNode.children && selectedNode.children.length > 0 && (
-                  <div>
-                    <strong style={{ color: mindmapData.theme.primaryColor }}>
-                      Connected concepts:
-                    </strong>
-                    <ul style={{ marginTop: '10px', paddingLeft: '20px' }}>
-                      {selectedNode.children.map(child => (
-                        <li 
-                          key={child.id} 
-                          style={{ 
-                            marginBottom: '5px',
-                            cursor: 'pointer',
-                            color: mindmapData.theme.textColor,
-                            opacity: 0.8
-                          }}
-                          onClick={() => selectNode(child.id)}
-                        >
-                          💡 {child.label}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Show connections */}
-                {mindmapData.connections.some(conn => conn.from === selectedNodeId || conn.to === selectedNodeId) && (
-                  <div style={{ marginTop: '20px' }}>
-                    <strong style={{ color: mindmapData.theme.primaryColor }}>
-                      Relationships:
-                    </strong>
-                    <div style={{ marginTop: '10px' }}>
-                      {mindmapData.connections
-                        .filter(conn => conn.from === selectedNodeId || conn.to === selectedNodeId)
-                        .map((conn, index) => (
-                          <div key={index} style={{
-                            backgroundColor: 'rgba(255,255,255,0.1)',
-                            padding: '8px',
-                            borderRadius: '5px',
-                            marginBottom: '5px',
-                            fontSize: '14px'
-                          }}>
-                            {conn.from === selectedNodeId 
-                              ? `→ ${conn.label} → ${findNodeById(mindmapData.nodes, conn.to)?.label}`
-                              : `← ${conn.label} ← ${findNodeById(mindmapData.nodes, conn.from)?.label}`
-                            }
-                          </div>
-                        ))
-                      }
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: '20px',
-          marginTop: '20px',
-          paddingTop: '20px',
-          borderTop: '1px solid rgba(255,255,255,0.1)'
-        }}>
-          <button
-            onClick={handleComplete}
-            style={{
-              background: `linear-gradient(45deg, ${mindmapData.theme.primaryColor}, #66bb6a)`,
-              color: 'white',
-              border: 'none',
-              borderRadius: '15px',
-              padding: '12px 24px',
-              fontSize: '15px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              transition: 'transform 0.2s ease',
-              minWidth: '110px'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            justifyContent: 'center',
+            overflow: 'auto',
+          }}
+        >
+          <IconButton
+            onClick={onClose}
+            sx={{ position: 'absolute', top: 8, right: 8 }}
           >
-            ✅ Complete
-          </button>
-        </div>
-      </div>
-    </div>
+            <CloseIcon />
+          </IconButton>
+          {!mindmapData ? (
+            <Box sx={{ textAlign: 'center', width: '100%' }}>
+              <Typography variant="h5" gutterBottom>
+                {isGenerating ? 'Generating Mindmap...' : 'Error Loading Mindmap'}
+              </Typography>
+              {isGenerating ? (
+                <CircularProgress sx={{ my: 2 }} />
+              ) : (
+                <>
+                  <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                    Unable to load mindmap data. Please try again.
+                  </Typography>
+                  {onRetry && (
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={onRetry}
+                      startIcon={<RefreshIcon />}
+                      sx={{ mr: 2 }}
+                    >
+                      Retry
+                    </Button>
+                  )}
+                </>
+              )}
+              <Button variant="outlined" onClick={onClose} sx={{ mt: 2 }}>
+                Close
+              </Button>
+            </Box>
+          ) : (
+            <Box sx={{ width: '100%', height: '70vh', overflow: 'auto', bgcolor: 'background.default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg ref={svgRef} style={{ display: 'block' }} />
+            </Box>
+          )}
+        </Paper>
+      </Fade>
+    </Modal>
   );
-}; 
+};
+
+export default MindmapComponent; 

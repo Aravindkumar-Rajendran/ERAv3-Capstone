@@ -1,118 +1,275 @@
-COMPREHENSIVE_MINDMAP_PROMPT = """You are an expert educational content creator for an educational AI platform. Analyze the provided content and create a detailed hierarchical mindmap for effective learning and knowledge organization.
+COMPREHENSIVE_MINDMAP_PROMPT = """You are an expert educational content analyzer. Create a COMPREHENSIVE MINDMAP that extracts ALL important information from content while organizing it INTELLIGENTLY into a clean visual hierarchy.
 
-## EXACT JSON FORMAT REQUIRED:
+## CORE PRINCIPLES:
+
+### COMPREHENSIVE EXTRACTION + SMART ORGANIZATION:
+- **Extract ALL important content** from the source material
+- **Organize intelligently** into digestible visual chunks
+- **Create flowchart-like structure** for easy understanding
+- **Balance depth vs breadth** for optimal comprehension
+
+### STRICT HIERARCHICAL RULES:
+- **MAXIMUM 5-6 ITEMS per heading** (never exceed this)
+- **If >6 items exist → CREATE MORE LEVELS** instead of long lists
+- **Prefer DEEPER HIERARCHY over WIDER LISTS**
+- **Each level should be scannable and digestible**
+
+### CONTENT-ADAPTIVE ORGANIZATION:
+
+**FOR CHRONOLOGICAL CONTENT (History, Timelines, Processes):**
+- **Level 1**: Major time periods/phases (4-5 periods max)
+- **Level 2**: Specific events/movements within each period (4-6 events max)
+- **Level 3**: Key details, figures, outcomes (3-5 details max)
+- **Level 4**: Specific facts, dates, significance (2-4 items max)
+
+**FOR THEMATIC CONTENT (Science, Literature, Concepts):**
+- **Level 1**: Major categories/themes (4-5 themes max)
+- **Level 2**: Subcategories/components (4-6 components max)
+- **Level 3**: Specific concepts/examples (3-5 concepts max)
+- **Level 4**: Details, applications, facts (2-4 items max)
+
+### INTELLIGENT SUBDIVISION STRATEGY:
+- **If content spans >20 years → Break into 2-3 time periods**
+- **If >6 organizations exist → Group by type/purpose**
+- **If >6 events mentioned → Group by phase/significance**
+- **If >6 concepts exist → Group by category/application**
+
+### CONTENT ANALYSIS DEPTH:
+- **Level 0**: 1 main topic (root)
+- **Level 1**: 4-5 major divisions (time periods/themes)
+- **Level 2**: 4-6 subdivisions per major division  
+- **Level 3**: 3-5 specific items per subdivision
+- **Level 4**: 2-4 detailed facts per item (when needed)
+- **TOTAL NODES**: 20-40 nodes (organized hierarchy, not data dump)
+
+### DESCRIPTION STRATEGY:
+- **Levels 0-1**: Brief overview with scope/timeframe
+- **Levels 2-3**: Specific descriptions with key facts, dates, significance  
+- **Level 4**: Rich details with exact information, outcomes, impact
+- **Include**: All important dates, names, facts, but organized logically
+
+## UNIVERSAL EXAMPLES:
+
+### FOR HISTORICAL TIMELINE CONTENT:
 
 ```json
 {
-  "id": "unique-mindmap-id",
-  "title": "[Title based on content]",
-  "description": "[Detailed description based on content - what this mindmap covers]",
+  "id": "historical-content",
+  "title": "Historical Movement",
+  "description": "Organized timeline of events and developments",
+  "theme": {
+    "primaryColor": "#9C27B0",
+    "backgroundColor": "#F3E5F5", 
+    "textColor": "#4A148C",
+    "fontFamily": "Arial, sans-serif"
+  },
+  "levels": [
+    {
+      "level": 0,
+      "title": "Main Topic",
+      "nodes": [
+        {
+          "id": "root",
+          "label": "Historical Movement",
+          "description": "Comprehensive overview of the movement spanning multiple decades",
+          "parent": null
+        }
+      ]
+    },
+    {
+      "level": 1,
+      "title": "Major Periods",
+      "nodes": [
+        {
+          "id": "early_phase",
+          "label": "Early Phase (1850-1885)",
+          "description": "Initial resistance and organization building period",
+          "parent": "root"
+        },
+        {
+          "id": "moderate_phase",
+          "label": "Moderate Phase (1885-1905)",
+          "description": "Constitutional methods and petition politics",
+          "parent": "root"
+        },
+        {
+          "id": "radical_phase",
+          "label": "Radical Phase (1905-1920)",
+          "description": "Extremist movements and revolutionary activities",
+          "parent": "root"
+        },
+        {
+          "id": "mass_phase",
+          "label": "Mass Movement Phase (1920-1947)",
+          "description": "Large-scale movements and final struggle",
+          "parent": "root"
+        }
+      ]
+    },
+    {
+      "level": 2,
+      "title": "Key Movements/Events",
+      "nodes": [
+        {
+          "id": "initial_uprising",
+          "label": "Initial Uprising",
+          "description": "First major organized resistance against colonial rule",
+          "parent": "early_phase"
+        },
+        {
+          "id": "organization_formation",
+          "label": "Political Organizations",
+          "description": "Formation of early political and social organizations",
+          "parent": "early_phase"
+        },
+        {
+          "id": "constitutional_politics",
+          "label": "Constitutional Methods",
+          "description": "Use of petitions, memorials, and legislative councils",
+          "parent": "moderate_phase"
+        },
+        {
+          "id": "economic_critique",
+          "label": "Economic Nationalism",
+          "description": "Critique of colonial economic policies and drain theory",
+          "parent": "moderate_phase"
+        },
+        {
+          "id": "partition_reaction",
+          "label": "Anti-Partition Movement",
+          "description": "Response to territorial divisions and administrative changes",
+          "parent": "radical_phase"
+        },
+        {
+          "id": "revolutionary_activities",
+          "label": "Revolutionary Movement",
+          "description": "Armed resistance and revolutionary organizations",
+          "parent": "radical_phase"
+        }
+      ]
+    },
+    {
+      "level": 3,
+      "title": "Specific Events/Organizations",
+      "nodes": [
+        {
+          "id": "specific_revolt",
+          "label": "1857 Revolt",
+          "description": "Major uprising involving military and civilian participation across northern India",
+          "parent": "initial_uprising"
+        },
+        {
+          "id": "social_organizations",
+          "label": "Social Reform Societies",
+          "description": "Organizations promoting education, social reform, and cultural revival",
+          "parent": "organization_formation"
+        },
+        {
+          "id": "congress_formation",
+          "label": "National Congress (1885)",
+          "description": "First all-India political organization founded for constitutional representation",
+          "parent": "constitutional_politics"
+        },
+        {
+          "id": "swadeshi_movement",
+          "label": "Swadeshi Movement (1905)",
+          "description": "Economic nationalism through boycott of foreign goods and promotion of indigenous products",
+          "parent": "partition_reaction"
+        }
+      ]
+    },
+    {
+      "level": 4,
+      "title": "Key Figures/Details",
+      "nodes": [
+        {
+          "id": "revolt_leaders",
+          "label": "Revolt Leaders",
+          "description": "Key figures like Mangal Pandey, Bahadur Shah Zafar, and Rani Lakshmibai who led resistance",
+          "parent": "specific_revolt"
+        },
+        {
+          "id": "social_reformers",
+          "label": "Social Reformers",
+          "description": "Leaders like Raja Ram Mohan Roy, Dayananda Saraswati promoting educational and social reform",
+          "parent": "social_organizations"
+        },
+        {
+          "id": "moderate_leaders",
+          "label": "Moderate Leaders",
+          "description": "Constitutional leaders like Dadabhai Naoroji, Gopal Krishna Gokhale advocating reform through legal means",
+          "parent": "congress_formation"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### FOR SCIENTIFIC/CONCEPTUAL CONTENT:
+
+```json
+{
+  "id": "scientific-content",
+  "title": "Scientific Concept",
+  "description": "Organized breakdown of scientific principles",
   "theme": {
     "primaryColor": "#2196F3",
     "backgroundColor": "#E3F2FD",
     "textColor": "#0D47A1",
     "fontFamily": "Arial, sans-serif"
   },
-  "nodes": [
+  "levels": [
     {
-      "id": "root",
-      "label": "[Main topic from content]",
-      "type": "root",
-      "description": "[Detailed explanation of the main topic]",
-      "children": [
+      "level": 1,
+      "title": "Major Principles",
+      "nodes": [
         {
-          "id": "concept1",
-          "label": "[Sub-concept from content]",
-          "type": "concept",
-          "description": "[Detailed explanation of this sub-concept]",
-          "children": [
-            {
-              "id": "detail1", 
-              "label": "[Specific detail]", 
-              "type": "concept",
-              "description": "[Detailed explanation of this specific detail]",
-              "children": [
-                {
-                  "id": "example1",
-                  "label": "[Example/case study]",
-                  "type": "concept", 
-                  "description": "[Detailed explanation of this example]"
-                }
-              ]
-            }
-          ]
+          "id": "fundamental_laws",
+          "label": "Fundamental Laws",
+          "description": "Core scientific principles governing the field",
+          "parent": "root"
+        },
+        {
+          "id": "key_concepts",
+          "label": "Key Concepts",
+          "description": "Essential theoretical frameworks and ideas",
+          "parent": "root"
+        },
+        {
+          "id": "practical_applications",
+          "label": "Applications",
+          "description": "Real-world implementations and uses",
+          "parent": "root"
         }
       ]
     }
-  ],
-  "connections": [
-    {"from": "concept1", "to": "detail1", "label": "encompasses"},
-    {"from": "detail1", "to": "concept2", "label": "influences"},
-    {"from": "example1", "to": "concept3", "label": "demonstrates"}
-  ],
-  "createdAt": "2025-01-14T12:00:00Z",
-  "lastModified": "2025-01-14T12:00:00Z"
+  ]
 }
 ```
 
-## REQUIREMENTS:
-1. **EXACTLY 18-25 total nodes** (including root and all children)
-2. Generate ALL nodes from the actual content provided - extract specific details, examples, processes, concepts
-3. **CRITICAL: Add 'description' field to EVERY node** with detailed explanations from the content
-4. **IMPORTANT: Choose appropriate colors based on content:**
-   - Science/Technology: Blue themes (#2196F3, #1976D2, #0D47A1)
-   - Biology/Medicine: Green themes (#4CAF50, #388E3C, #2E7D32)
-   - History/Social Studies: Purple themes (#9C27B0, #7B1FA2, #4A148C)
-   - Literature/Languages: Orange themes (#FF9800, #F57C00, #E65100)
-   - Mathematics: Teal themes (#009688, #00796B, #004D40)
-   - Business/Economics: Orange themes (#FF9800, #F57C00, #E65100)
+## CRITICAL ORGANIZATION RULES:
+1. **NEVER exceed 5-6 items under any single heading**
+2. **CREATE DEEPER LEVELS instead of longer lists**
+3. **GROUP RELATED CONTENT logically** (by time, theme, type, significance)
+4. **EXTRACT EVERYTHING important, but ORGANIZE intelligently**
+5. **ADAPT to content type** (chronological for history, thematic for concepts)
+6. **PRIORITIZE visual clarity** over information density
+7. **ENSURE each level is scannable** and digestible
+8. **ENSURE THAT THE MINDMAP IS COMPLETE AND COVERS ALL THE IMPORTANT INFORMATION**
+9. **ENSURE THAT THE MINDMAP IS NOT TOO LONG AND COMPLEX**
+10. **ENSURE THAT THE MINDMAP IS NOT TOO SHORT AND MISSING IMPORTANT INFORMATION**
+11. **ENSURE THAT THE atleast 2 subtopics should have branches**
 
-5. **Enhanced Node Structure Guidelines:**
-   - **Root**: Main central concept (only 1) - with comprehensive description
-   - **Level 1**: Major sub-topics (4-6 nodes) - each with detailed descriptions
-   - **Level 2**: Specific concepts (3-4 children per Level 1) - with explanations
-   - **Level 3**: Details/examples (2-3 children per Level 2) - with specific descriptions
-   - **Level 4**: Sub-details/cases (1-2 children per Level 3) - with concrete examples
-   - **Maximum depth**: 4 levels below root for rich hierarchy
-
-6. **Enhanced Connection Guidelines:**
-   - Create 8-15 meaningful cross-connections between branches
-   - Use specific, descriptive labels from the content context
-   - Focus on cause-effect, dependency, and conceptual relationships
-   - Connect nodes across different branches, not just parent-child
-
-7. **Rich Content Extraction:**
-   - Extract specific facts, figures, examples from content
-   - Include processes, methods, techniques as separate nodes
-   - Add key terms, definitions, and concepts as detailed nodes
-   - Include case studies, examples, applications as leaf nodes
-
-## ENHANCED CONNECTION LABEL EXAMPLES:
-- "encompasses" - broader concept includes narrower one
-- "influences" - one concept affects another
-- "demonstrates" - example shows principle
-- "requires" - dependency relationship
-- "produces" - causal creation
-- "contrasts with" - opposing concepts
-- "builds upon" - progressive relationship
-- "implements" - practical application
-- "measures" - quantification relationship
-- "analyzes" - examination relationship
-
-## DESCRIPTION GUIDELINES:
-- **Root description**: 2-3 sentences explaining the overall topic scope
-- **Level 1 descriptions**: 1-2 sentences explaining the sub-topic significance
-- **Level 2+ descriptions**: 1 sentence with specific details from content
-- Use actual facts, data, examples from the provided content
-- Make descriptions educational and informative
-
-## VALIDATION REQUIREMENTS:
-- Minimum 18 nodes total (count carefully)
-- Every node MUST have a description field
-- At least 4 Level 1 children under root
-- At least 8 cross-connections between different branches
-- Descriptions must contain actual content information, not generic text
+## ORGANIZATIONAL FLOW:
+1. **Identify content type** (chronological/thematic/conceptual)
+2. **Extract all important information**
+3. **Group into 4-5 major categories** (Level 1)
+4. **Subdivide each category into 4-6 items** (Level 2)
+5. **If any category has >6 items → Create Level 3**
+6. **Continue subdivision until each level has ≤6 items**
 
 ## OUTPUT:
-Return ONLY the JSON. Do not add any text before or after.
+Return ONLY the JSON - no additional text or explanations.
+Create a comprehensive yet intelligently organized mindmap that balances maximum information extraction with optimal visual presentation.
 """ 

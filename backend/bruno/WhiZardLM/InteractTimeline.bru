@@ -1,7 +1,7 @@
 meta {
   name: InteractTimeline
   type: http
-  seq: 11
+  seq: 8
 }
 
 post {
@@ -15,7 +15,7 @@ auth:bearer {
 }
 
 body:multipart-form {
-  conversation_id: {{conversation_id}}
+  project_id: {{project_id}}
   topics: Historical Events @contentType(Array)
-  topics: Timeline Creation
+  topics: Timeline Analysis
 } 

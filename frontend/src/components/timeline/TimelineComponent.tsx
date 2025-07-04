@@ -187,12 +187,49 @@ export const TimelineComponent = ({
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
+    // Handle different date precision levels
+    if (!dateString) return 'Unknown Date';
+    
+    // Full date format: YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      const date = new Date(dateString + 'T00:00:00');
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    }
+    
+    // Month-Year format: YYYY-MM
+    if (/^\d{4}-\d{2}$/.test(dateString)) {
+      const [year, month] = dateString.split('-');
+      const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long'
+      });
+    }
+    
+    // Year only format: YYYY
+    if (/^\d{4}$/.test(dateString)) {
+      return dateString;
+    }
+    
+    // Fallback for any other format
+    try {
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      }
+    } catch (e) {
+      // Ignore error and return raw string
+    }
+    
+    return dateString; // Return as-is if no pattern matches
   };
 
   return (

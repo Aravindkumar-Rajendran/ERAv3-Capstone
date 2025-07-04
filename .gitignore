@@ -55,3 +55,4 @@ backend/.venv/
 # UV package manager
 backend/uv.lock
 
+frontend/build/

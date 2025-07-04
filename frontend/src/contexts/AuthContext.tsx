@@ -7,6 +7,7 @@ import {
   User
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
+import { BASE_URL } from '../services/routes';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -31,8 +32,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const BACKEND_URL = "http://localhost:8000";
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
@@ -43,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Verify token with backend
         try {
-          const response = await fetch(`${BACKEND_URL}/auth/verify`, {
+          const response = await fetch(`${BASE_URL}/auth/verify`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${idToken}`,

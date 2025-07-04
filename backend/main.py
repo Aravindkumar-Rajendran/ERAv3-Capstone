@@ -1,6 +1,6 @@
 from typing import Optional, List
 import uvicorn
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Depends, Body, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -17,6 +17,8 @@ import uuid
 import time
 
 from dotenv import load_dotenv
+from pydantic import BaseModel
+import traceback
 
 # Load environment variables
 load_dotenv()
@@ -93,10 +95,13 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
         )
 
 @app.get("/auth/conversations")
-async def get_user_conversations(current_user: dict = Depends(get_current_user)):
-    """Get all conversations for the authenticated user"""
+async def get_user_conversations(
+    project_id: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user)
+):
+    """Get all conversations for the authenticated user and project (if provided)"""
     try:
-        conversations = database_client.get_user_conversations(current_user["user_id"])
+        conversations = database_client.get_user_conversations(current_user["user_id"], project_id)
         return {
             "status": "success",
             "conversations": conversations
@@ -246,97 +251,140 @@ async def upload(
     text: Optional[str] = Form(None),
     files: Optional[List[UploadFile]] = File(None),
     youtube_urls: Optional[List[str]] = Form(None),
+    project_id: str = Form(...),
 ):
     """
     Upload text, PDF files, or YouTube URLs to generate a quiz.
     The LLM will analyze the content and choose the best quiz subtype.
-
-    RAG Data Ingestion process
-        1. Extract content from file
-        2. Chunk content into smaller segments
-        3. Convert content to embeddings
-        4. Store embeddings in vector database (ChromaDB)
     """
-    
     try:
         # Extract content from text or file
         content = []
+        source_type = None
+        source_name = None
+        source_content = None
+        source_url = None
         if files:
             for file in files:
                 if file.content_type == "application/pdf":
-                    content.append(await extractor.extract_text_from_pdf(file))
+                    try:
+                        extracted = await extractor.extract_text_from_pdf(file)
+                        content.append(extracted)
+                        source_type = "pdf"
+                        source_name = file.filename
+                        source_content = None
+                        source_url = None
+                    except Exception as e:
+                        print(f"PDF extraction failed for {file.filename}: {e}")
+                        continue  # Skip this file, try others
                 else:
                     continue # Skip unsupported file types
-
         if text:
             content.append(text)
-
+            source_type = "text"
+            source_name = text[:40] + ("..." if len(text) > 40 else "")
+            source_content = text
+            source_url = None
         if youtube_urls:
             transcripts = await extractor.extract_transcripts_from_youtube(youtube_urls)
             content.extend(transcripts)
-
+            source_type = "youtube"
+            source_name = youtube_urls[0] if isinstance(youtube_urls, list) else youtube_urls
+            source_content = None
+            source_url = youtube_urls[0] if isinstance(youtube_urls, list) else youtube_urls
         if not content:
             raise HTTPException(
                 status_code=400, 
-                detail="No content provided. Please upload a PDF file, provide text, or YouTube URLs."
+                detail="No content provided. Please upload a PDF file with extractable text, provide text, or YouTube URLs."
             )
         # Flatten content list
         # chunk and create topics
         chunks, topics = await chunker.chunk_with_topics(content)
-
-        # store chunks and topics in vector database
         conversation_id = indexer.get_conversation_id()
-        indexer.create_index_with_topics(conversation_id, chunks, topics)
-        # save topics with conversation ID and user_id in sqlite
-        database_client.write_topics(conversation_id, topics, user_id=current_user["user_id"])
-
+        if chunks and topics:
+            # --- Accumulate topics instead of overwriting ---
+            existing_topics = database_client.read_project_topics(project_id, user_id=current_user["user_id"])
+            if existing_topics:
+                # Merge and deduplicate, preserving order
+                merged_topics = list(dict.fromkeys([t.strip() for t in existing_topics + topics if t and t.strip()]))
+            else:
+                merged_topics = [t.strip() for t in topics if t and t.strip()]
+            database_client.write_topics(project_id, merged_topics, user_id=current_user["user_id"])
+            # Index only the new topics/chunks for this upload
+            indexer.create_index_with_topics(conversation_id, chunks, topics, project_id=project_id)
+        else:
+            print("No chunks/topics to index for this upload. Skipping ChromaDB indexing.")
+        # Store the source in the database
+        source_id = str(uuid.uuid4())
+        database_client.write_source(
+            source_id=source_id,
+            user_id=current_user["user_id"],
+            project_id=project_id,
+            name=source_name or f"Source {source_id[:8]}",
+            type_=source_type or "text",
+            content=source_content,
+            url=source_url
+        )
         return {
             "status": "success",
             "conversation_id": conversation_id,
+            "source_id": source_id,
+            "source_name": source_name or f"Source {source_id[:8]}",
             "message": "Content processed and indexed successfully",
         }
-
     except Exception as e:
+        print("UPLOAD ERROR:", traceback.format_exc())
         raise HTTPException(
             status_code=500,
             detail=f"Failed to process upload: {str(e)}"
         )
-                
+
+@app.get("/sources")
+async def get_sources(
+    project_id: str = Query(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    List all sources for the current user and project.
+    """
+    try:
+        sources = database_client.list_sources(current_user["user_id"], project_id)
+        return {"status": "success", "sources": sources}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch sources: {str(e)}"
+        )
 
 @app.post("/chat")
 async def chat(
     current_user: dict = Depends(get_current_user),
     user_input: str = Form(..., description="User query for chat"),
     conversation_id: str = Form(..., description="Unique conversation identifier"),
+    project_id: str = Form(..., description="Project identifier"),
 ):
     """
     Chat with the LLM using user input, context, and conversation history.
     The LLM will respond based on the provided input, context, and previous conversation.
     """
-    
     try:
-        if not user_input or len(user_input.strip()) < 5:
+        if not user_input or len(user_input.strip()) < 2:
             raise HTTPException(
                 status_code=400, 
-                detail="User input is too short. Please provide at least 5 characters."
+                detail="User input is too short. Please provide at least 2 characters."
             )
-        
-        retriever = Retriever(conversation_id=conversation_id)
-
+        retriever = Retriever(project_id=project_id)
         # Retrieve context based on user input
         context = retriever.semantic_search(user_input)
         print(f"Retrieved context: {context}")
-
         # Retrieve conversation history for multi-turn dialogue
         conversation_history = database_client.read_chat_messages(conversation_id, user_id=current_user["user_id"])
         print(f"Retrieved conversation history: {len(conversation_history) if conversation_history else 0} messages")
-        
         # DEBUG: Print the exact structure of conversation history
         if conversation_history:
             print(f"DEBUG: First message structure: {conversation_history[0]}")
             for i, msg in enumerate(conversation_history):
                 print(f"DEBUG: Message {i}: type='{msg.get('type')}', content='{msg.get('content', '')[:50]}...'")
-
         # Generate response using Gemini with conversation history
         try:
             response = gemini_client.chat(user_input, context, conversation_history)
@@ -345,21 +393,17 @@ async def chat(
             print(f"DEBUG: Gemini error: {str(gemini_error)}")
             print(f"DEBUG: Gemini error type: {type(gemini_error).__name__}")
             raise gemini_error
-
-        # Save both user message and assistant response to database with user_id
-        database_client.write_chat_message(conversation_id, "user", user_input, user_id=current_user["user_id"])
-        database_client.write_chat_message(conversation_id, "assistant", response, user_id=current_user["user_id"])
-        
+        # Save both user message and assistant response to database with user_id and project_id
+        database_client.write_chat_message(conversation_id, "user", user_input, user_id=current_user["user_id"], project_id=project_id)
+        database_client.write_chat_message(conversation_id, "assistant", response, user_id=current_user["user_id"], project_id=project_id)
         return {
             "response": response,
             "status": "success",
             "message": "Chat response generated successfully"
         }
-        
     except Exception as e:
         print(f"DEBUG: Chat endpoint error: {str(e)}")
         print(f"DEBUG: Error type: {type(e).__name__}")
-        import traceback
         print(f"DEBUG: Full traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
@@ -367,37 +411,34 @@ async def chat(
         )
 
 
-@app.get("/topics/{conversation_id}")
+@app.get("/topics/{project_id}")
 async def get_topics(
-    conversation_id: str,
+    project_id: str,
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Retrieve topics from the database based on conversation ID.
-    This will return a list of topics associated with the conversation.
+    Retrieve topics for the given project for the current user.
     """
-    
     try:
-        if not conversation_id:
-            raise HTTPException(
-                status_code=400, 
-                detail="Conversation ID is required."
-            )
+        print('User:', current_user["user_id"])
+        print('Project:', project_id)
         
-        topics = database_client.read_topics(conversation_id, user_id=current_user["user_id"])
+        topics = database_client.read_project_topics(project_id, user_id=current_user["user_id"])
+        print('Topics:', topics)
         
         if not topics:
-            raise HTTPException(
-                status_code=404, 
-                detail="No topics found for the provided conversation ID."
-            )
-        
+            print('No topics found for this project.')
+            return {
+                "topics": [],
+                "status": "success", 
+                "message": "No topics found for this project."
+            }
+            
         return {
             "topics": topics,
             "status": "success",
             "message": "Topics retrieved successfully"
         }
-        
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -448,100 +489,54 @@ async def get_conversation_history(
         )
 
 
-@app.get("/interactive-history/{conversation_id}")
-async def get_interactive_history(
-    conversation_id: str,
-    current_user: dict = Depends(get_current_user),
-):
-    """
-    Retrieve interactive content history from the database based on conversation ID.
-    This will return all generated interactive content associated with the conversation.
-    """
-    
-    try:
-        if not conversation_id:
-            raise HTTPException(
-                status_code=400, 
-                detail="Conversation ID is required."
-            )
-        
-        interactive_history = database_client.read_interactive_content(conversation_id, user_id=current_user["user_id"])
-        
-        if not interactive_history:
-            raise HTTPException(
-                status_code=404, 
-                detail="No interactive content found for the provided conversation ID."
-            )
-        
-        return {
-            "interactive_history": interactive_history,
-            "status": "success",
-            "message": "Interactive content history retrieved successfully"
-        }
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to retrieve interactive content history: {str(e)}"
-        )
 
 
-@app.post("/interact", response_model=QuizResponse)
+
+@app.post("/interact-quiz", response_model=QuizResponse)
 async def generate_interactives(
     current_user: dict = Depends(get_current_user),
     topics: List[str] = Form(None),
-    conversation_id: str = Form(..., description="Unique conversation identifier")
+    project_id: str = Form(..., description="Project identifier")
 ):
     """
     Generate a quiz based on text content or uploaded PDF file.
     The LLM will analyze the content and choose the best quiz subtype.
     """
-    
     try:
-        print(f"📥 Received interaction request with topics: {topics}, conversation_id: {conversation_id}")
-        
+        print(f"📥 Received interaction request with topics: {topics}, project_id: {project_id}")
         if not topics or len(topics) == 0:
             raise HTTPException(
                 status_code=400, 
                 detail="No topics provided. Please provide at least one topic."
             )
-        
-        print(f"🔍 Creating retriever for conversation: {conversation_id}")
-        retriever = Retriever(conversation_id=conversation_id)
-        
+        print(f"🔍 Creating retriever for project: {project_id}")
+        retriever = Retriever(project_id=project_id)
         print(f"Retrieving content for topics: {topics}")
-
-        # retrieve content based on topics
-        content = retriever.retrieve_content_with_topics(topics)
+        content = retriever.retrieve_content_by_project(project_id, topics)
         print(f"📄 Retrieved content length: {len(content) if content else 0}")
-        
         if not content:
             raise HTTPException(
                 status_code=400,
                 detail="No content found for the provided topics. Please try different topics."
             )
-
         print(f"🤖 Generating quiz with Gemini...")
-        # Generate quiz using Gemini
         quiz_json = await gemini_client.generate_quiz(content, COMPREHENSIVE_QUIZ_PROMPT)
         print(f"✅ Quiz generated successfully!")
-        
-        # Save interactive content to database with user_id
-        database_client.write_interactive_content(conversation_id, "quiz", quiz_json, topics, user_id=current_user["user_id"])
+        interact_id = str(uuid.uuid4())
+        database_client.write_interactive_content(interact_id, project_id, "quiz", quiz_json, topics, user_id=current_user["user_id"])
         print(f"💾 Quiz saved to database successfully!")
-        
+        database_client.write_interactive_history(current_user["user_id"], project_id, "quiz", topics)
         return QuizResponse(
             quiz_data=quiz_json,
             status="success",
-            message="Quiz generated successfully"
+            message="Quiz generated successfully",
+            interact_id=interact_id
         )
-        
     except HTTPException:
         raise
     except Exception as e:
         print(f"❌ Error in generate_interactives: {str(e)}")
         print(f"❌ Error type: {type(e).__name__}")
-        import traceback
         print(f"❌ Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
@@ -552,11 +547,11 @@ async def generate_interactives(
 async def generate_timeline(
     current_user: dict = Depends(get_current_user),
     topics: Optional[List[str]] = Form(None),
-    conversation_id: str = Form(..., description="Unique conversation identifier")
+    project_id: str = Form(..., description="Project identifier")
 ):
     """Generate a timeline based on selected topics."""
     try:
-        print(f"📥 Received timeline request with topics: {topics}, conversation_id: {conversation_id}")
+        print(f"📥 Received timeline request with topics: {topics}, project_id: {project_id}")
         
         if not topics or len(topics) == 0:
             raise HTTPException(
@@ -564,8 +559,8 @@ async def generate_timeline(
                 detail="No topics provided. Please provide at least one topic."
             )
         
-        retriever = Retriever(conversation_id=conversation_id)
-        content = retriever.retrieve_content_with_topics(topics)
+        retriever = Retriever(project_id=project_id)
+        content = retriever.retrieve_content_by_project(project_id, topics)
         
         if not content:
             raise HTTPException(
@@ -601,20 +596,23 @@ async def generate_timeline(
                 message=timeline_json["message"]
             )
         
-        # Save interactive content to database with user_id
-        database_client.write_interactive_content(conversation_id, "timeline", timeline_json, topics, user_id=current_user["user_id"])
+        interact_id = str(uuid.uuid4())
+        database_client.write_interactive_content(interact_id, project_id, "timeline", timeline_json, topics, user_id=current_user["user_id"])
         print(f"💾 Timeline saved to database successfully!")
+        database_client.write_interactive_history(current_user["user_id"], project_id, "timeline", topics)
         
         return TimelineResponse(
             timeline_data=timeline_json,
             status="success",
-            message="Timeline generated successfully"
+            message="Timeline generated successfully",
+            interact_id=interact_id
         )
         
     except HTTPException:
         raise
     except Exception as e:
         print(f"❌ Error in generate_timeline: {str(e)}")
+        print(f"❌ Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate timeline: {str(e)}"
@@ -625,11 +623,11 @@ async def generate_timeline(
 async def generate_mindmap(
     current_user: dict = Depends(get_current_user),
     topics: Optional[List[str]] = Form(None),
-    conversation_id: str = Form(..., description="Unique conversation identifier")
+    project_id: str = Form(..., description="Project identifier")
 ):
     """Generate a mindmap based on selected topics."""
     try:
-        print(f"📥 Received mindmap request with topics: {topics}, conversation_id: {conversation_id}")
+        print(f"📥 Received mindmap request with topics: {topics}, project_id: {project_id}")
         
         if not topics or len(topics) == 0:
             raise HTTPException(
@@ -637,8 +635,8 @@ async def generate_mindmap(
                 detail="No topics provided. Please provide at least one topic."
             )
         
-        retriever = Retriever(conversation_id=conversation_id)
-        content = retriever.retrieve_content_with_topics(topics)
+        retriever = Retriever(project_id=project_id)
+        content = retriever.retrieve_content_by_project(project_id, topics)
         
         if not content:
             raise HTTPException(
@@ -666,20 +664,23 @@ async def generate_mindmap(
         
         mindmap_json = json.loads(mindmap_response)
         
-        # Save interactive content to database with user_id
-        database_client.write_interactive_content(conversation_id, "mindmap", mindmap_json, topics, user_id=current_user["user_id"])
+        interact_id = str(uuid.uuid4())
+        database_client.write_interactive_content(interact_id, project_id, "mindmap", mindmap_json, topics, user_id=current_user["user_id"])
         print(f"💾 Mindmap saved to database successfully!")
+        database_client.write_interactive_history(current_user["user_id"], project_id, "mindmap", topics)
         
         return MindmapResponse(
             mindmap_data=mindmap_json,
             status="success",
-            message="Mindmap generated successfully"
+            message="Mindmap generated successfully",
+            interact_id=interact_id
         )
         
     except HTTPException:
         raise
     except Exception as e:
         print(f"❌ Error in generate_mindmap: {str(e)}")
+        print(f"❌ Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate mindmap: {str(e)}"
@@ -690,11 +691,11 @@ async def generate_mindmap(
 async def generate_flashcard(
     current_user: dict = Depends(get_current_user),
     topics: Optional[List[str]] = Form(None),
-    conversation_id: str = Form(..., description="Unique conversation identifier")
+    project_id: str = Form(..., description="Project identifier")
 ):
     """Generate flashcards based on selected topics."""
     try:
-        print(f"📥 Received flashcard request with topics: {topics}, conversation_id: {conversation_id}")
+        print(f"📥 Received flashcard request with topics: {topics}, project_id: {project_id}")
         
         if not topics or len(topics) == 0:
             raise HTTPException(
@@ -702,8 +703,8 @@ async def generate_flashcard(
                 detail="No topics provided. Please provide at least one topic."
             )
         
-        retriever = Retriever(conversation_id=conversation_id)
-        content = retriever.retrieve_content_with_topics(topics)
+        retriever = Retriever(project_id=project_id)
+        content = retriever.retrieve_content_by_project(project_id, topics)
         
         if not content:
             raise HTTPException(
@@ -731,24 +732,123 @@ async def generate_flashcard(
         
         flashcard_json = json.loads(flashcard_response)
         
-        # Save interactive content to database with user_id
-        database_client.write_interactive_content(conversation_id, "flashcard", flashcard_json, topics, user_id=current_user["user_id"])
+        interact_id = str(uuid.uuid4())
+        database_client.write_interactive_content(interact_id, project_id, "flashcard", flashcard_json, topics, user_id=current_user["user_id"])
         print(f"💾 Flashcard saved to database successfully!")
+        database_client.write_interactive_history(current_user["user_id"], project_id, "flashcard", topics)
         
         return FlashcardResponse(
             flashcard_data=flashcard_json,
             status="success",
-            message="Flashcard generated successfully"
+            message="Flashcard generated successfully",
+            interact_id=interact_id
         )
         
     except HTTPException:
         raise
     except Exception as e:
         print(f"❌ Error in generate_flashcard: {str(e)}")
+        print(f"❌ Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate flashcard: {str(e)}"
         )
+
+class ProjectCreateRequest(BaseModel):
+    name: str
+
+@app.post("/projects")
+async def create_project(request: ProjectCreateRequest, current_user: dict = Depends(get_current_user)):
+    """Create a new project for the current user"""
+    try:
+        project_id = str(uuid.uuid4())
+        database_client.create_project(project_id, current_user["user_id"], request.name)
+        return {"status": "success", "project": {"id": project_id, "name": request.name}}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create project: {str(e)}")
+
+@app.get("/projects")
+async def list_projects(current_user: dict = Depends(get_current_user)):
+    """List all projects for the current user"""
+    try:
+        projects = database_client.list_projects(current_user["user_id"])
+        return {"status": "success", "projects": projects}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list projects: {str(e)}")
+
+@app.get("/projects/{project_id}")
+async def get_project(project_id: str, current_user: dict = Depends(get_current_user)):
+    """Get details of a specific project for the current user"""
+    try:
+        project = database_client.get_project(project_id, current_user["user_id"])
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        return {"status": "success", "project": project}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get project: {str(e)}")
+
+@app.post("/conversations/new")
+async def create_new_conversation(
+    project_id: str = Form(...),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Create a new conversation for the current user and project.
+    """
+    try:
+        conversation_id = str(uuid.uuid4())
+        title = f"Conversation {conversation_id[:8]}"
+        database_client.create_conversation(conversation_id, title=title, user_id=current_user["user_id"], project_id=project_id)
+        return {
+            "status": "success", 
+            "id": conversation_id,  # Changed from conversation_id to id
+            "title": title,
+            "created_at": None,  # Added to match frontend expectations
+            "updated_at": None    # Added to match frontend expectations
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create new conversation: {str(e)}")
+
+@app.get("/interact-history")
+async def get_user_interactive_history(
+    project_id: str = Query(..., description="Project identifier"),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get the 10 most recent interactive history entries for the current user and project.
+    """
+    try:
+        user_id = current_user["user_id"]
+        history = database_client.read_interactive_history(user_id, project_id, limit=10)
+        return {
+            "interactive_history": history,
+            "status": "success",
+            "message": "Fetched recent interactive history."
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch interactive history: {str(e)}"
+        )
+
+# New endpoint to fetch interactive content by interact_id
+@app.get("/interact-content/{interact_id}")
+async def get_interactive_content(
+    interact_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Fetch a single interactive element (quiz, timeline, mindmap, flashcard) by its interact_id.
+    """
+    try:
+        content = database_client.read_interactive_content(interact_id, user_id=current_user["user_id"])
+        if not content:
+            raise HTTPException(status_code=404, detail="Interactive content not found")
+        return {"status": "success", "interactive_content": content}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch interactive content: {str(e)}")
 
 if __name__ == "__main__":
     # Validate config
